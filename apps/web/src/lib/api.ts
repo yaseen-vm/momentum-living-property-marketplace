@@ -12,7 +12,9 @@ async function request<T>(path: string, options?: RequestInit & { token?: string
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((err as { error: string }).error);
+    const e = (err as { error: unknown }).error;
+    const msg = typeof e === "string" ? e : typeof e === "object" && e !== null && "message" in e ? String((e as { message: unknown }).message) : res.statusText;
+    throw new Error(msg);
   }
   return res.json() as Promise<T>;
 }
