@@ -5,3 +5,8 @@ dist/
 .dev.vars
 .env
 .env.local
+
+# Compiled JS output — Wrangler and Vite compile from TS sources directly
+apps/api/src/**/*.js
+apps/web/src/**/*.js
+apps/ingestion/src/**/*.js
