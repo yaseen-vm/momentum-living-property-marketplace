@@ -1,0 +1,28 @@
+name = "momentum-api"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "momentum-db"
+database_id = "5924a303-3fc9-4de6-abd1-ba4551885c51"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "1c7d33b4c7b746039a4e94c3308cc027"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "momentum-files"
+
+[vars]
+ENVIRONMENT = "development"
+
+[env.dev]
+name = "momentum-api-dev"
+vars = { ENVIRONMENT = "development" }
+
+[env.production]
+name = "momentum-api"
+vars = { ENVIRONMENT = "production" }

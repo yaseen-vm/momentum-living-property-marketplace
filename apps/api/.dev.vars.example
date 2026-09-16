@@ -1,0 +1,5 @@
+JWT_SECRET=change-me-at-least-32-chars-long-xxxxxxxxxxxx
+MSG91_AUTH_KEY=your-msg91-auth-key
+MSG91_TEMPLATE_ID=your-msg91-template-id
+RESEND_API_KEY=re_xxxx
+ADMIN_EMAIL=admin@example.com
