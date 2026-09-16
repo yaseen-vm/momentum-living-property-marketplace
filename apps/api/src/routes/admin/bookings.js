@@ -21,7 +21,6 @@ adminBookingRoutes.get("/", requireAuth(["admin"]), async (c) => {
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const rows = await c.env.DB.prepare(`SELECT b.id, b.status, b.admin_note, b.created_at, b.updated_at,
-            b.customer_name as booking_customer_name, b.customer_email, b.customer_alt_mobile,
             cu.id as customer_id, cu.name as customer_name, cu.mobile as customer_mobile,
             l.id as listing_id, l.title as listing_title, l.type as listing_type,
             l.location_text as listing_location, l.price as listing_price, l.currency as listing_currency,
@@ -47,10 +46,8 @@ adminBookingRoutes.get("/", requireAuth(["admin"]), async (c) => {
             updated_at: r.updated_at,
             customer: {
                 id: r.customer_id,
-                name: r.booking_customer_name ?? r.customer_name,
+                name: r.customer_name,
                 mobile: r.customer_mobile,
-                email: r.customer_email ?? null,
-                alt_mobile: r.customer_alt_mobile ?? null,
             },
             listing: {
                 id: r.listing_id,

@@ -38,7 +38,22 @@ export default function AdminBookingsPage() {
             setNoteText("");
         },
     });
-    const bookings = data?.bookings ?? [];
+    // Normalise flat (old Worker) or nested (new Worker) response shapes
+    function normalizeBooking(b) {
+        return {
+            ...b,
+            customer: b.customer ?? { name: b.customer_name, mobile: b.customer_mobile },
+            vendor: b.vendor ?? { name: b.vendor_name, mobile: b.vendor_mobile },
+            listing: b.listing ?? {
+                title: b.listing_title,
+                type: b.listing_type,
+                location_text: b.listing_location,
+                price: b.listing_price,
+                currency: b.listing_currency,
+            },
+        };
+    }
+    const bookings = (data?.bookings ?? []).map(normalizeBooking);
     function formatDate(ts) {
         return new Date(ts).toLocaleString();
     }
