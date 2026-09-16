@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../store/auth";
 import { PageSpinner } from "../../components/ui/Spinner";
-import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import type { AdminReports } from "../../lib/api";
 

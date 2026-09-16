@@ -116,7 +116,7 @@ export interface CreateListingRequest {
   photo_keys?: string[];
 }
 
-export interface UpdateListingRequest extends Partial<CreateListingRequest> {}
+export type UpdateListingRequest = Partial<CreateListingRequest>;
 
 // ─── Customer shapes ─────────────────────────────────────────────────────────
 

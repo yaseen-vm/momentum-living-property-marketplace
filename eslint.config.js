@@ -8,7 +8,13 @@ import reactHooks from "eslint-plugin-react-hooks";
 /** @type {import("eslint").Linter.FlatConfig[]} */
 export default [
   {
-    ignores: ["**/dist/**", "**/.wrangler/**", "**/node_modules/**"],
+    ignores: [
+      "**/dist/**",
+      "**/.wrangler/**",
+      "**/node_modules/**",
+      "**/tailwind.config.ts",
+      "**/vite.config.ts",
+    ],
   },
   {
     files: ["**/*.ts", "**/*.tsx"],

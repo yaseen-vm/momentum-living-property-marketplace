@@ -57,7 +57,7 @@ adminExportRoutes.get("/", requireAuth(["admin"]), async (c) => {
   let rows: Record<string, string | number | null>[];
 
   if (type === "customers") {
-    headers = "name,mobile,mobile_verified_at,signup_date,last_login_at";
+    headers = "Name,Mobile,Mobile Verified,Signup Date,Last Login";
     const result = await c.env.DB.prepare(
       `SELECT name, mobile, mobile_verified_at, created_at as signup_date, last_login_at
        FROM users WHERE role = 'customer' AND ${dateCol} >= ? AND ${dateCol} <= ?
@@ -67,7 +67,7 @@ adminExportRoutes.get("/", requireAuth(["admin"]), async (c) => {
       .all<{ name: string; mobile: string; mobile_verified_at: number | null; signup_date: number; last_login_at: number | null }>();
     rows = result.results;
   } else {
-    headers = "name,mobile,mobile_verified_at,vendor_type,status,company_name,licence_no,signup_date,last_login_at";
+    headers = "Name,Mobile,Mobile Verified,Owner Type,Status,Company Name,Licence No,Signup Date,Last Login";
     const statusFilter =
       owner_status && owner_status !== "all" ? "AND vp.status = ?" : "";
     const params: (string | number)[] = [fromMs, toMs];

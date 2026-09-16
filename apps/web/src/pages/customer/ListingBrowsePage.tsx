@@ -200,8 +200,51 @@ function ListingCard({ listing, onClick }: { listing: ListingSummary; onClick: (
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <Home className="h-10 w-10 text-slate-300" />
+          <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+            <svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-4/5 h-4/5 opacity-60">
+              {/* Sky gradient */}
+              <rect width="200" height="150" fill="url(#sky)" rx="4" />
+              {/* Ground */}
+              <rect x="0" y="110" width="200" height="40" fill="#CBD5E1" />
+              {/* Building left */}
+              <rect x="20" y="55" width="38" height="55" fill="#94A3B8" rx="2" />
+              <rect x="25" y="62" width="9" height="11" fill="#E2E8F0" rx="1" />
+              <rect x="39" y="62" width="9" height="11" fill="#E2E8F0" rx="1" />
+              <rect x="25" y="79" width="9" height="11" fill="#E2E8F0" rx="1" />
+              <rect x="39" y="79" width="9" height="11" fill="#E2E8F0" rx="1" />
+              <rect x="25" y="96" width="9" height="14" fill="#E2E8F0" rx="1" />
+              <rect x="39" y="96" width="9" height="14" fill="#E2E8F0" rx="1" />
+              {/* Main building center */}
+              <rect x="72" y="30" width="56" height="80" fill="#7C9EB8" rx="2" />
+              <rect x="78" y="38" width="10" height="12" fill="#E2E8F0" rx="1" />
+              <rect x="95" y="38" width="10" height="12" fill="#E2E8F0" rx="1" />
+              <rect x="112" y="38" width="10" height="12" fill="#E2E8F0" rx="1" />
+              <rect x="78" y="56" width="10" height="12" fill="#E2E8F0" rx="1" />
+              <rect x="95" y="56" width="10" height="12" fill="#E2E8F0" rx="1" />
+              <rect x="112" y="56" width="10" height="12" fill="#E2E8F0" rx="1" />
+              <rect x="78" y="74" width="10" height="12" fill="#E2E8F0" rx="1" />
+              <rect x="95" y="74" width="10" height="12" fill="#E2E8F0" rx="1" />
+              <rect x="112" y="74" width="10" height="12" fill="#E2E8F0" rx="1" />
+              {/* Door */}
+              <rect x="91" y="96" width="18" height="14" fill="#BFDBFE" rx="1" />
+              {/* Building right */}
+              <rect x="142" y="65" width="38" height="45" fill="#94A3B8" rx="2" />
+              <rect x="147" y="72" width="9" height="11" fill="#E2E8F0" rx="1" />
+              <rect x="161" y="72" width="9" height="11" fill="#E2E8F0" rx="1" />
+              <rect x="147" y="89" width="9" height="11" fill="#E2E8F0" rx="1" />
+              <rect x="161" y="89" width="9" height="11" fill="#E2E8F0" rx="1" />
+              {/* Palm tree */}
+              <rect x="52" y="82" width="3" height="28" fill="#A8956A" />
+              <ellipse cx="53.5" cy="82" rx="10" ry="5" fill="#86EFAC" />
+              <ellipse cx="53.5" cy="80" rx="7" ry="4" transform="rotate(-20 53.5 80)" fill="#6EE7B7" />
+              <ellipse cx="53.5" cy="80" rx="7" ry="4" transform="rotate(20 53.5 80)" fill="#6EE7B7" />
+              <defs>
+                <linearGradient id="sky" x1="0" y1="0" x2="0" y2="110" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#DBEAFE" />
+                  <stop offset="100%" stopColor="#E2E8F0" />
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
         )}
       </div>

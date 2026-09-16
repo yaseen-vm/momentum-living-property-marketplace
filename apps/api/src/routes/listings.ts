@@ -4,7 +4,7 @@ import type { Bindings, Variables } from "../types";
 export const listingRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 listingRoutes.get("/", async (c) => {
-  const { type, location, min_price, max_price, min_size, amenities, sort, limit, offset } =
+  const { type, location, min_price, max_price, min_size, sort, limit, offset } =
     c.req.query();
 
   const pageLimit = Math.min(parseInt(limit ?? "20", 10), 50);

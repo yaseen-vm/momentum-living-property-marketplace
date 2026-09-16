@@ -28,7 +28,7 @@ export default function VendorPendingPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#1D3B53]/10 text-xs font-bold text-[#1D3B53]">2</span>
-                You'll receive an SMS and email once approved
+                You&apos;ll receive an SMS and email once approved
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#1D3B53]/10 text-xs font-bold text-[#1D3B53]">3</span>

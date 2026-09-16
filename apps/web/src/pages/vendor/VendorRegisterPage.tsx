@@ -7,7 +7,7 @@ import { Upload, CheckCircle } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../store/auth";
 import { Button } from "../../components/ui/Button";
-import { Input, Select } from "../../components/ui/Input";
+import { Input } from "../../components/ui/Input";
 
 type VendorType =
   | "labour_camp_landlord"

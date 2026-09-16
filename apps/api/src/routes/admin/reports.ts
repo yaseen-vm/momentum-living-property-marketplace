@@ -47,10 +47,6 @@ adminReportRoutes.get("/", requireAuth(["admin"]), async (c) => {
   const tMap = toMap(listingByType.results as { status: string; cnt: number }[]);
   const cRow = (customerStats.results[0] ?? { total: 0, verified: 0 }) as { total: number; verified: number };
 
-  const lTotal = Object.values(lMap).reduce((a, b) => a + b, 0);
-  const vTotal = Object.values(vMap).reduce((a, b) => a + b, 0);
-  const bTotal = Object.values(bMap).reduce((a, b) => a + b, 0);
-
   return c.json({
     customers_total: cRow.total,
     listings_by_status: {

@@ -42,10 +42,11 @@ export default function AdminExportPage() {
       const { from, to } = getDateRange(dateRange, customFrom, customTo);
       const params = new URLSearchParams({
         type: exportType,
-        field: dateField,
+        date_field: dateField,
+        period: "custom",
         from: String(from),
         to: String(to),
-        ...(exportType === "vendors" && vendorStatus ? { status: vendorStatus } : {}),
+        ...(exportType === "vendors" && vendorStatus ? { owner_status: vendorStatus } : {}),
       });
       const res = await fetch(`${API_BASE}/admin/export?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -186,9 +187,9 @@ export default function AdminExportPage() {
         <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
           <p className="font-medium mb-1">Exported columns:</p>
           {exportType === "customers" ? (
-            <p>name, mobile, mobile_verified_at, signup_date, last_login_at</p>
+            <p>Name, Mobile, Mobile Verified, Signup Date, Last Login</p>
           ) : (
-            <p>name, mobile, mobile_verified_at, vendor_type, status, signup_date, last_login_at, company_name, licence_no</p>
+            <p>Name, Mobile, Mobile Verified, Owner Type, Status, Company Name, Licence No, Signup Date, Last Login</p>
           )}
         </div>
       </div>
