@@ -52,28 +52,27 @@ adminReportRoutes.get("/", requireAuth(["admin"]), async (c) => {
   const bTotal = Object.values(bMap).reduce((a, b) => a + b, 0);
 
   return c.json({
-    listings: {
-      total: lTotal,
-      approved: lMap["approved"] ?? 0,
+    customers_total: cRow.total,
+    listings_by_status: {
       pending: lMap["pending"] ?? 0,
+      approved: lMap["approved"] ?? 0,
       rejected: lMap["rejected"] ?? 0,
-      by_type: {
-        property: tMap["property"] ?? 0,
-        plot: tMap["plot"] ?? 0,
-        room: tMap["room"] ?? 0,
-      },
     },
-    vendors: {
-      total: vTotal,
-      approved: vMap["approved"] ?? 0,
+    listings_by_type: {
+      property: tMap["property"] ?? 0,
+      plot: tMap["plot"] ?? 0,
+      room: tMap["room"] ?? 0,
+    },
+    vendors_by_status: {
       pending: vMap["pending"] ?? 0,
+      approved: vMap["approved"] ?? 0,
       rejected: vMap["rejected"] ?? 0,
     },
-    customers: { total: cRow.total, verified: cRow.verified },
-    bookings: {
-      total: bTotal,
-      closed: bMap["closed"] ?? 0,
+    bookings_by_status: {
       pending: bMap["pending"] ?? 0,
+      owner_confirmed: bMap["owner_confirmed"] ?? 0,
+      customer_contacted: bMap["customer_contacted"] ?? 0,
+      closed: bMap["closed"] ?? 0,
     },
   });
 });

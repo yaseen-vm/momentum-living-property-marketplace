@@ -28,6 +28,17 @@ function escapeCsv(val: string | number | null | undefined): string {
   return s;
 }
 
+function fmtDate(ts: number | null | undefined): string {
+  if (!ts) return "";
+  return new Date(Number(ts)).toISOString().replace("T", " ").slice(0, 19);
+}
+
+// ="..." forces Excel to treat the cell as text, preventing scientific notation for phone numbers
+function fmtPhone(val: string | null | undefined): string {
+  if (!val) return "";
+  return `="${val}"`;
+}
+
 function rowToCsv(fields: (string | number | null | undefined)[]): string {
   return fields.map(escapeCsv).join(",");
 }
@@ -81,11 +92,19 @@ adminExportRoutes.get("/", requireAuth(["admin"]), async (c) => {
 
   const lines: string[] = [headers];
   for (const row of rows) {
-    lines.push(rowToCsv(Object.values(row)));
+    let fields: (string | number | null | undefined)[];
+    if (type === "customers") {
+      const r = row as { name: string; mobile: string; mobile_verified_at: number | null; signup_date: number; last_login_at: number | null };
+      fields = [r.name, fmtPhone(r.mobile), fmtDate(r.mobile_verified_at), fmtDate(r.signup_date), fmtDate(r.last_login_at)];
+    } else {
+      const r = row as { name: string; mobile: string; mobile_verified_at: number | null; vendor_type: string; status: string; company_name: string | null; licence_no: string | null; signup_date: number; last_login_at: number | null };
+      fields = [r.name, fmtPhone(r.mobile), fmtDate(r.mobile_verified_at), r.vendor_type, r.status, r.company_name, r.licence_no, fmtDate(r.signup_date), fmtDate(r.last_login_at)];
+    }
+    lines.push(rowToCsv(fields));
   }
   const csv = lines.join("\r\n");
 
-  const filename = `${type}-export-${new Date().toISOString().split("T")[0]}.csv`;
+  const filename = `${type}-export-${fmtDate(Date.now()).slice(0, 10)}.csv`;
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../store/auth";
@@ -32,10 +32,12 @@ export default function AdminReportsPage() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
-  const params: Record<string, string> = {
+  // useMemo prevents Date.now() from creating a new object every render,
+  // which would change the queryKey on every tick and keep isLoading permanently true.
+  const params = useMemo<Record<string, string>>(() => ({
     from: String(getFromTs(range, customFrom)),
     to: range === "custom" ? String(new Date(customTo).getTime()) : String(Date.now()),
-  };
+  }), [range, customFrom, customTo]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-reports", params],

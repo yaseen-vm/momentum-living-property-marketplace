@@ -106,6 +106,20 @@ A commit that adds a new feature or changes behaviour without updating the match
 
 ---
 
+## Source vs Compiled Files — IMPORTANT
+
+Each workspace has both TypeScript source files (`.ts` / `.tsx`) and compiled JavaScript output (`.js`) **in the same `src/` directories**. The CI build compiles the TypeScript and overwrites the JS files on every deploy.
+
+**Always edit the `.ts` / `.tsx` source files. Never edit the `.js` files directly — they will be overwritten by the next build.**
+
+| Workspace | Source to edit | Compiled output (do not edit) |
+|-----------|---------------|-------------------------------|
+| `apps/api/src/**` | `*.ts` | `*.js` (same path, overwritten by build) |
+| `apps/web/src/**` | `*.tsx` / `*.ts` | `*.js` (same path, overwritten by build) |
+| `apps/ingestion/src/**` | `*.ts` | `*.js` (same path, overwritten by build) |
+
+---
+
 ## Git Workflow
 
 **Before every commit:** run linting and fix all errors before staging.
