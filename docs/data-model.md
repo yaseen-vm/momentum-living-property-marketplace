@@ -130,6 +130,9 @@ Booking / interest requests created when a customer clicks "Book" on a listing.
 | `listing_id` | TEXT NOT NULL FK → listings | |
 | `status` | TEXT NOT NULL DEFAULT `pending` | `pending` \| `owner_confirmed` \| `customer_contacted` \| `closed` |
 | `admin_note` | TEXT | Internal deal-tracking note |
+| `customer_name` | TEXT | Name submitted by customer at booking time |
+| `customer_email` | TEXT | Email submitted by customer at booking time |
+| `customer_alt_mobile` | TEXT | Optional secondary number submitted at booking time |
 | `created_at` | INTEGER NOT NULL | Unix ms |
 | `updated_at` | INTEGER NOT NULL | Unix ms |
 
