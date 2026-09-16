@@ -80,10 +80,14 @@ export const api = {
         body: JSON.stringify(body),
         token,
       }),
-    createBooking: (listingId: string, token: string) =>
+    createBooking: (
+      listingId: string,
+      contact: { name: string; email: string; alt_mobile?: string },
+      token: string
+    ) =>
       request<{ bookingId: string }>("/customer/bookings", {
         method: "POST",
-        body: JSON.stringify({ listing_id: listingId }),
+        body: JSON.stringify({ listing_id: listingId, ...contact }),
         token,
       }),
     getBookings: (token: string) =>
@@ -316,16 +320,30 @@ export interface AdminListing {
 export interface AdminBooking {
   id: string;
   status: string;
-  customer_name: string;
-  customer_mobile: string;
-  listing_title: string;
-  listing_type: string;
-  listing_location: string;
-  vendor_name: string;
-  vendor_mobile: string;
   admin_note: string | null;
   created_at: number;
-  notes: Array<{ id: string; body: string; created_at: number }>;
+  customer: {
+    id: string;
+    name: string;
+    mobile: string;
+    email: string | null;
+    alt_mobile: string | null;
+  };
+  listing: {
+    id: string;
+    title: string;
+    type: string;
+    location_text: string;
+    price: number;
+    currency: string;
+    size_sqft: number | null;
+    bedrooms: number | null;
+    bathrooms: number | null;
+    total_capacity: number | null;
+    num_rooms: number | null;
+  };
+  vendor: { id: string; name: string; mobile: string };
+  notes?: Array<{ id: string; body: string; created_at: number }>;
 }
 
 export interface AdminReports {

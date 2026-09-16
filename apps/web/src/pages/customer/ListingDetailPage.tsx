@@ -7,6 +7,8 @@ import { api } from "../../lib/api";
 import { useAuthStore } from "../../store/auth";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
+import { Input } from "../../components/ui/Input";
+import { Modal } from "../../components/ui/Modal";
 import { PageSpinner } from "../../components/ui/Spinner";
 import "leaflet/dist/leaflet.css";
 import type { ListingDetail } from "../../lib/api";
@@ -19,6 +21,8 @@ export default function ListingDetailPage() {
   const [booked, setBooked] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [shortlisted, setShortlisted] = useState(false);
+  const [showBookModal, setShowBookModal] = useState(false);
+  const [bookForm, setBookForm] = useState({ name: "", email: "", alt_mobile: "" });
 
   const { data: listing, isLoading } = useQuery({
     queryKey: ["listing", id],
@@ -26,9 +30,26 @@ export default function ListingDetailPage() {
     enabled: !!token && !!id,
   });
 
+  const { data: profile } = useQuery({
+    queryKey: ["customer-profile"],
+    queryFn: () => api.customer.getProfile(token!),
+    enabled: !!token,
+  });
+
+  function openBookModal() {
+    setBookForm({ name: profile?.name ?? "", email: "", alt_mobile: "" });
+    setBookingError(null);
+    setShowBookModal(true);
+  }
+
   const bookMutation = useMutation({
-    mutationFn: () => api.customer.createBooking(id!, token!),
-    onSuccess: () => setBooked(true),
+    mutationFn: () =>
+      api.customer.createBooking(
+        id!,
+        { name: bookForm.name, email: bookForm.email, alt_mobile: bookForm.alt_mobile || undefined },
+        token!
+      ),
+    onSuccess: () => { setBooked(true); setShowBookModal(false); },
     onError: (e) => setBookingError(e instanceof Error ? e.message : "Booking failed"),
   });
 
@@ -200,16 +221,9 @@ export default function ListingDetailPage() {
                 </div>
               ) : (
                 <>
-                  <Button
-                    className="w-full"
-                    loading={bookMutation.isPending}
-                    onClick={() => bookMutation.mutate()}
-                  >
+                  <Button className="w-full" onClick={openBookModal}>
                     Request to Book
                   </Button>
-                  {bookingError && (
-                    <p className="mt-2 text-center text-xs text-red-600">{bookingError}</p>
-                  )}
                   <p className="mt-3 text-center text-xs text-slate-400">
                     Our admin will contact you within 24 hours
                   </p>
@@ -219,6 +233,50 @@ export default function ListingDetailPage() {
           </div>
         </div>
       </main>
+
+      <Modal open={showBookModal} onClose={() => setShowBookModal(false)} title="Request to Book">
+        <div className="space-y-4">
+          <Input
+            label="Your Name"
+            value={bookForm.name}
+            onChange={(e) => setBookForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="Full name"
+            required
+          />
+          <Input
+            label="Mobile Number"
+            value={profile?.mobile ?? ""}
+            disabled
+            hint="Your verified number — will be shared with admin"
+          />
+          <Input
+            label="Secondary Number (optional)"
+            value={bookForm.alt_mobile}
+            onChange={(e) => setBookForm((f) => ({ ...f, alt_mobile: e.target.value }))}
+            placeholder="+971 50 000 0000"
+            type="tel"
+          />
+          <Input
+            label="Email"
+            value={bookForm.email}
+            onChange={(e) => setBookForm((f) => ({ ...f, email: e.target.value }))}
+            placeholder="you@example.com"
+            type="email"
+            required
+          />
+          {bookingError && <p className="text-xs text-red-600">{bookingError}</p>}
+          <div className="flex gap-3 justify-end pt-1">
+            <Button variant="secondary" onClick={() => setShowBookModal(false)}>Cancel</Button>
+            <Button
+              loading={bookMutation.isPending}
+              disabled={!bookForm.name.trim() || !bookForm.email.trim()}
+              onClick={() => bookMutation.mutate()}
+            >
+              Submit Request
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

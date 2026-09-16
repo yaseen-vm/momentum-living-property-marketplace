@@ -77,19 +77,24 @@ export default function AdminBookingsPage() {
           ) : (
             bookings.map((booking) => (
               <div key={booking.id} className="rounded-xl bg-white shadow-sm overflow-hidden">
+                {/* Summary row */}
                 <div
                   className="flex items-start justify-between p-4 cursor-pointer hover:bg-slate-50"
                   onClick={() => setExpandedId(expandedId === booking.id ? null : booking.id)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
-                      <span className="font-medium text-slate-900">{booking.listing_title}</span>
+                      <span className="font-medium text-slate-900">{booking.listing.title}</span>
                       <Badge status={booking.status} />
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                      <span>Customer: {booking.customer_name} ({booking.customer_mobile})</span>
-                      <span>Owner: {booking.vendor_name} ({booking.vendor_mobile})</span>
-                      <span>{booking.listing_type} · {booking.listing_location}</span>
+                      <span>
+                        Customer: {booking.customer.name} ({booking.customer.mobile})
+                        {booking.customer.email ? ` · ${booking.customer.email}` : ""}
+                        {booking.customer.alt_mobile ? ` · Alt: ${booking.customer.alt_mobile}` : ""}
+                      </span>
+                      <span>Owner: {booking.vendor.name} ({booking.vendor.mobile})</span>
+                      <span>{booking.listing.type} · {booking.listing.location_text}</span>
                       <span>{formatDate(booking.created_at)}</span>
                     </div>
                   </div>
@@ -98,8 +103,47 @@ export default function AdminBookingsPage() {
                   </div>
                 </div>
 
+                {/* Expanded detail */}
                 {expandedId === booking.id && (
                   <div className="border-t border-slate-100 p-4 space-y-4">
+                    {/* Contact + Property cards */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-lg bg-slate-50 p-3 text-sm space-y-1">
+                        <p className="font-medium text-slate-700 mb-1">Customer Contact</p>
+                        <p className="text-slate-600">Name: {booking.customer.name}</p>
+                        <p className="text-slate-600">Mobile: {booking.customer.mobile}</p>
+                        {booking.customer.alt_mobile && (
+                          <p className="text-slate-600">Alt Mobile: {booking.customer.alt_mobile}</p>
+                        )}
+                        {booking.customer.email && (
+                          <p className="text-slate-600">Email: {booking.customer.email}</p>
+                        )}
+                      </div>
+                      <div className="rounded-lg bg-blue-50 p-3 text-sm space-y-1">
+                        <p className="font-medium text-slate-700 mb-1">Property Details</p>
+                        <p className="text-slate-600">Type: {booking.listing.type}</p>
+                        <p className="text-slate-600">Location: {booking.listing.location_text}</p>
+                        <p className="font-semibold text-slate-800">
+                          {booking.listing.currency} {booking.listing.price.toLocaleString()} / year
+                        </p>
+                        {booking.listing.size_sqft && (
+                          <p className="text-slate-600">Size: {booking.listing.size_sqft} sqft</p>
+                        )}
+                        {booking.listing.bedrooms != null && (
+                          <p className="text-slate-600">Bedrooms: {booking.listing.bedrooms}</p>
+                        )}
+                        {booking.listing.bathrooms != null && (
+                          <p className="text-slate-600">Bathrooms: {booking.listing.bathrooms}</p>
+                        )}
+                        {booking.listing.total_capacity && (
+                          <p className="text-slate-600">Capacity: {booking.listing.total_capacity} persons</p>
+                        )}
+                        {booking.listing.num_rooms && (
+                          <p className="text-slate-600">Rooms: {booking.listing.num_rooms}</p>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Status update */}
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-slate-700">Update Status:</span>

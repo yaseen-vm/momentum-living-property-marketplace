@@ -73,7 +73,7 @@ listingRoutes.get("/", async (c) => {
   const listings = rows.results.map((r) => ({
     ...r,
     cover_photo_url: r.thumbnail_key
-      ? `${c.req.url.split("/listings")[0]}/files/${r.thumbnail_key}`
+      ? `${c.req.url.split("/listings")[0]}/upload/files/${r.thumbnail_key}`
       : null,
     thumbnail_key: undefined,
   }));
@@ -132,7 +132,7 @@ listingRoutes.get("/:id", async (c) => {
     ...listing,
     amenities: listing.amenities ? (JSON.parse(listing.amenities) as string[]) : [],
     photos: photos.results.map((p) => ({
-      url: `${baseUrl}/files/${p.r2_key}`,
+      url: `${baseUrl}/upload/files/${p.r2_key}`,
       display_order: p.display_order,
     })),
   });

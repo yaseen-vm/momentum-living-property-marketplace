@@ -7,10 +7,18 @@ export const customerBookingRoutes = new Hono<{ Bindings: Bindings; Variables: V
 
 customerBookingRoutes.post("/", requireAuth(["customer"]), async (c) => {
   const payload = c.get("jwtPayload");
-  const body = await c.req.json<{ listing_id?: string }>();
+  const body = await c.req.json<{
+    listing_id?: string;
+    name?: string;
+    email?: string;
+    alt_mobile?: string;
+  }>();
 
   if (!body.listing_id) {
     return c.json({ error: { code: "VALIDATION_ERROR", message: "listing_id required" } }, 422);
+  }
+  if (!body.name || !body.email) {
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "name and email are required" } }, 422);
   }
 
   const listing = await c.env.DB.prepare(
@@ -59,9 +67,9 @@ customerBookingRoutes.post("/", requireAuth(["customer"]), async (c) => {
   const now = Date.now();
 
   await c.env.DB.prepare(
-    "INSERT INTO bookings (id, customer_id, listing_id, status, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?)"
+    "INSERT INTO bookings (id, customer_id, listing_id, status, customer_name, customer_email, customer_alt_mobile, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)"
   )
-    .bind(bookingId, payload.sub, body.listing_id, now, now)
+    .bind(bookingId, payload.sub, body.listing_id, body.name, body.email, body.alt_mobile ?? null, now, now)
     .run();
 
   c.executionCtx.waitUntil(
@@ -79,8 +87,10 @@ customerBookingRoutes.post("/", requireAuth(["customer"]), async (c) => {
       await notifyAdminNewBooking(
         {
           bookingId,
-          customerName: customer?.name ?? "Unknown",
+          customerName: body.name!,
           customerMobile: customer?.mobile ?? "",
+          customerEmail: body.email!,
+          customerAltMobile: body.alt_mobile ?? null,
           listingTitle: listing.title,
           listingType: listing.type,
           locationText: listing.location_text,

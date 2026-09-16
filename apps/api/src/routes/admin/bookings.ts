@@ -29,9 +29,13 @@ adminBookingRoutes.get("/", requireAuth(["admin"]), async (c) => {
 
   const rows = await c.env.DB.prepare(
     `SELECT b.id, b.status, b.admin_note, b.created_at, b.updated_at,
+            b.customer_name as booking_name, b.customer_email, b.customer_alt_mobile,
             cu.id as customer_id, cu.name as customer_name, cu.mobile as customer_mobile,
             l.id as listing_id, l.title as listing_title, l.type as listing_type,
-            l.location_text as listing_location,
+            l.location_text as listing_location, l.price as listing_price,
+            l.currency as listing_currency, l.size_sqft as listing_size,
+            l.bedrooms as listing_bedrooms, l.bathrooms as listing_bathrooms,
+            l.total_capacity as listing_total_capacity, l.num_rooms as listing_num_rooms,
             vu.id as vendor_id, vu.name as vendor_name, vu.mobile as vendor_mobile
      FROM bookings b
      JOIN users cu ON cu.id = b.customer_id
@@ -45,8 +49,12 @@ adminBookingRoutes.get("/", requireAuth(["admin"]), async (c) => {
     .bind(...params, pageLimit, pageOffset)
     .all<{
       id: string; status: string; admin_note: string | null; created_at: number; updated_at: number;
+      booking_name: string | null; customer_email: string | null; customer_alt_mobile: string | null;
       customer_id: string; customer_name: string; customer_mobile: string;
       listing_id: string; listing_title: string; listing_type: string; listing_location: string;
+      listing_price: number; listing_currency: string; listing_size: number | null;
+      listing_bedrooms: number | null; listing_bathrooms: number | null;
+      listing_total_capacity: number | null; listing_num_rooms: number | null;
       vendor_id: string; vendor_name: string; vendor_mobile: string;
     }>();
 
@@ -57,8 +65,26 @@ adminBookingRoutes.get("/", requireAuth(["admin"]), async (c) => {
       admin_note: r.admin_note,
       created_at: r.created_at,
       updated_at: r.updated_at,
-      customer: { id: r.customer_id, name: r.customer_name, mobile: r.customer_mobile },
-      listing: { id: r.listing_id, title: r.listing_title, type: r.listing_type, location_text: r.listing_location },
+      customer: {
+        id: r.customer_id,
+        name: r.booking_name ?? r.customer_name,
+        mobile: r.customer_mobile,
+        email: r.customer_email ?? null,
+        alt_mobile: r.customer_alt_mobile ?? null,
+      },
+      listing: {
+        id: r.listing_id,
+        title: r.listing_title,
+        type: r.listing_type,
+        location_text: r.listing_location,
+        price: r.listing_price,
+        currency: r.listing_currency,
+        size_sqft: r.listing_size ?? null,
+        bedrooms: r.listing_bedrooms ?? null,
+        bathrooms: r.listing_bathrooms ?? null,
+        total_capacity: r.listing_total_capacity ?? null,
+        num_rooms: r.listing_num_rooms ?? null,
+      },
       vendor: { id: r.vendor_id, name: r.vendor_name, mobile: r.vendor_mobile },
     })),
   });

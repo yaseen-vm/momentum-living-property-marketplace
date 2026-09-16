@@ -4,6 +4,8 @@ interface BookingNotifyPayload {
   bookingId: string;
   customerName: string;
   customerMobile: string;
+  customerEmail: string;
+  customerAltMobile: string | null;
   listingTitle: string;
   listingType: string;
   locationText: string;
@@ -19,7 +21,7 @@ export async function notifyAdminNewBooking(
 <h2>New Booking Request</h2>
 <p><strong>Booking ID:</strong> ${payload.bookingId}</p>
 <h3>Customer</h3>
-<p>Name: ${payload.customerName}<br>Mobile: ${payload.customerMobile}</p>
+<p>Name: ${payload.customerName}<br>Mobile: ${payload.customerMobile}<br>Email: ${payload.customerEmail}${payload.customerAltMobile ? `<br>Alt Mobile: ${payload.customerAltMobile}` : ""}</p>
 <h3>Listing</h3>
 <p>${payload.listingTitle} (${payload.listingType})<br>${payload.locationText}</p>
 <h3>Owner / Vendor</h3>
