@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Plus, Edit2, Send, Trash2, Building2, LogOut } from "lucide-react";
+import { Plus, Edit2, Send, Trash2, Home, LogOut, Clock, CheckCircle2, XCircle, FileEdit } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../store/auth";
 import { Badge } from "../../components/ui/Badge";
@@ -37,79 +37,83 @@ export default function VendorDashboardPage() {
   }, {});
 
   const summaryCards = [
-    { label: "Draft", status: "draft", color: "bg-slate-100 text-slate-700" },
-    { label: "Pending Review", status: "pending", color: "bg-yellow-100 text-yellow-700" },
-    { label: "Approved", status: "approved", color: "bg-green-100 text-green-700" },
-    { label: "Rejected", status: "rejected", color: "bg-red-100 text-red-700" },
+    { label: "Drafts", status: "draft", icon: FileEdit, bgColor: "bg-slate-100", iconColor: "text-slate-600" },
+    { label: "Under Review", status: "pending", icon: Clock, bgColor: "bg-amber-100", iconColor: "text-amber-700" },
+    { label: "Live", status: "approved", icon: CheckCircle2, bgColor: "bg-emerald-100", iconColor: "text-emerald-700" },
+    { label: "Needs Changes", status: "rejected", icon: XCircle, bgColor: "bg-red-100", iconColor: "text-red-700" },
   ];
 
   if (isLoading) return <PageSpinner />;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white shadow-sm">
+      <header style={{ backgroundColor: '#1D3B53' }} className="shadow-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-7 w-7 text-primary-600" />
-            <span className="text-lg font-bold text-slate-900">Momentum Living</span>
-            <span className="ml-2 rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-medium text-primary-700">
-              Owner
-            </span>
+          <div>
+            <div className="text-lg font-bold italic font-serif text-white">
+              Momentum<span className="font-sans font-semibold not-italic">Living</span>
+            </div>
+            <div className="text-xs text-slate-300">Owner Dashboard</div>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              variant="primary"
-              size="sm"
+            <button
               onClick={() => navigate("/vendor/listings/new")}
+              className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[#1D3B53] hover:bg-slate-100 transition-colors"
             >
               <Plus className="h-4 w-4" />
               New Listing
-            </Button>
-            <Button variant="ghost" size="sm" onClick={clearAuth}>
+            </button>
+            <button onClick={clearAuth} className="p-2 text-slate-300 hover:text-white transition-colors" title="Sign out">
               <LogOut className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">My Dashboard</h1>
+        <div className="mb-2">
+          <h1 className="text-2xl font-serif font-bold text-slate-900">My Properties</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage your listings and track their approval status.</p>
+        </div>
 
         {/* Stats */}
-        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {summaryCards.map(({ label, status, color }) => (
-            <div key={status} className="rounded-xl bg-white p-5 shadow-sm">
-              <div className={`mb-2 inline-flex rounded-lg px-2.5 py-1 text-xs font-medium ${color}`}>
-                {label}
+        <div className="mt-6 mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {summaryCards.map(({ label, status, icon: Icon, bgColor, iconColor }) => (
+            <div key={status} className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100">
+              <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl ${bgColor}`}>
+                <Icon className={`h-5 w-5 ${iconColor}`} />
               </div>
               <div className="text-3xl font-extrabold text-slate-900">
                 {statusCounts[status] ?? 0}
               </div>
+              <div className="mt-1 text-sm text-slate-500">{label}</div>
             </div>
           ))}
         </div>
 
         {/* Listings */}
-        <div className="rounded-xl bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <h2 className="font-semibold text-slate-900">My Listings</h2>
-            <span className="text-sm text-slate-500">{listings.length} total</span>
+        <div className="rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+            <h2 className="font-semibold text-slate-900">All Listings</h2>
+            <span className="text-sm text-slate-400">{listings.length} total</span>
           </div>
           {listings.length === 0 ? (
-            <div className="py-16 text-center">
-              <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-              <p className="text-slate-500">No listings yet.</p>
+            <div className="py-20 text-center">
+              <Home className="mx-auto mb-4 h-12 w-12 text-slate-200" />
+              <p className="font-medium text-slate-700">No listings yet</p>
+              <p className="mt-1 text-sm text-slate-400">Create your first listing to get started.</p>
               <Button
-                className="mt-4"
+                className="mt-5"
                 onClick={() => navigate("/vendor/listings/new")}
               >
-                Create your first listing
+                <Plus className="h-4 w-4" />
+                Create a Listing
               </Button>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-50">
               {listings.map((listing) => (
-                <div key={listing.id} className="flex items-start justify-between gap-4 px-6 py-4">
+                <div key={listing.id} className="flex items-start justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
                       <span className="font-medium text-slate-900 truncate">{listing.title}</span>
@@ -120,8 +124,8 @@ export default function VendorDashboardPage() {
                       {listing.location_text}
                     </p>
                     {listing.admin_note && listing.status === "rejected" && (
-                      <p className="mt-1 text-xs text-red-600">
-                        Admin note: {listing.admin_note}
+                      <p className="mt-1.5 text-xs text-red-600 bg-red-50 px-3 py-1.5 rounded-lg inline-block">
+                        Admin feedback: {listing.admin_note}
                       </p>
                     )}
                   </div>
@@ -132,6 +136,7 @@ export default function VendorDashboardPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => navigate(`/vendor/listings/${listing.id}/edit`)}
+                          title="Edit listing"
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>
@@ -151,8 +156,9 @@ export default function VendorDashboardPage() {
                         variant="danger"
                         size="sm"
                         onClick={() => {
-                          if (confirm("Delete this listing?")) deleteMutation.mutate(listing.id);
+                          if (confirm("Delete this listing? This cannot be undone.")) deleteMutation.mutate(listing.id);
                         }}
+                        title="Delete listing"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

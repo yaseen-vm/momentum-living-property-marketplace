@@ -57,8 +57,7 @@ export default function ListingBrowsePage() {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <Home className="h-6 w-6 text-primary-600" />
-            <span className="font-bold text-slate-900">Momentum Living</span>
+            <span className="text-lg font-bold italic font-serif text-[#1D3B53]">Momentum<span className="font-sans font-semibold not-italic">Living</span></span>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => setShowFilters(!showFilters)}>
@@ -216,7 +215,7 @@ function ListingCard({ listing, onClick }: { listing: ListingSummary; onClick: (
           {listing.location_text}
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-lg font-bold text-primary-600">
+          <span className="text-lg font-bold text-[#1D3B53]">
             {listing.currency} {listing.price.toLocaleString()}
           </span>
           {listing.bedrooms != null && (

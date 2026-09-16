@@ -1,16 +1,16 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Users, LayoutList, CalendarCheck, Download, BarChart3, Bell, LogOut } from "lucide-react";
+import { LayoutList, Users, CalendarCheck, Download, BarChart3, Bell, LogOut } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../store/auth";
 import { clsx } from "clsx";
 
 const NAV_ITEMS = [
-  { to: "/admin/vendors", label: "Vendors", icon: Users },
-  { to: "/admin/listings", label: "Listings", icon: LayoutList },
-  { to: "/admin/bookings", label: "Bookings", icon: CalendarCheck },
-  { to: "/admin/export", label: "Export", icon: Download },
+  { to: "/admin/vendors", label: "Owner Verification", icon: Users },
+  { to: "/admin/listings", label: "Listing Approval", icon: LayoutList },
+  { to: "/admin/bookings", label: "Booking Requests", icon: CalendarCheck },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { to: "/admin/export", label: "Export Data", icon: Download },
 ];
 
 export default function AdminLayout() {
@@ -28,31 +28,30 @@ export default function AdminLayout() {
   return (
     <div className="flex min-h-screen bg-slate-50">
       {/* Sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-        <div className="flex items-center gap-2 border-b border-slate-200 px-6 py-5">
-          <Building2 className="h-7 w-7 text-primary-600" />
+      <aside className="hidden w-64 shrink-0 flex-col lg:flex" style={{ backgroundColor: '#1D3B53' }}>
+        <div className="flex items-center gap-3 px-6 py-6 border-b border-white/10">
           <div>
-            <div className="font-bold text-slate-900">Momentum</div>
-            <div className="text-xs text-slate-500">Admin Panel</div>
+            <div className="text-lg font-bold text-white italic font-serif">Momentum<span className="font-sans font-semibold not-italic">Living</span></div>
+            <div className="text-xs text-slate-300 mt-0.5">Admin Portal</div>
           </div>
         </div>
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 space-y-1 p-4">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
                 clsx(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-primary-50 text-primary-700"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    ? "bg-white/20 text-white"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
                 )
               }
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 shrink-0" />
               {label}
-              {label === "Bookings" && unread > 0 && (
+              {label === "Booking Requests" && unread > 0 && (
                 <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
                   {unread}
                 </span>
@@ -60,10 +59,10 @@ export default function AdminLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-slate-200 p-3">
+        <div className="border-t border-white/10 p-4">
           <button
             onClick={clearAuth}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100"
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white transition-colors"
           >
             <LogOut className="h-4 w-4" />
             Sign Out
@@ -73,9 +72,8 @@ export default function AdminLayout() {
 
       {/* Mobile top bar */}
       <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4 lg:hidden">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-6 w-6 text-primary-600" />
-          <span className="font-bold text-slate-900">Admin</span>
+        <div className="text-base font-bold italic font-serif text-[#1D3B53]">
+          Momentum<span className="font-sans font-semibold not-italic">Living</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -89,7 +87,7 @@ export default function AdminLayout() {
         </div>
       </div>
 
-      {/* Mobile nav */}
+      {/* Mobile bottom nav */}
       <div className="fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200 bg-white lg:hidden">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink
@@ -98,12 +96,12 @@ export default function AdminLayout() {
             className={({ isActive }) =>
               clsx(
                 "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
-                isActive ? "text-primary-600" : "text-slate-500"
+                isActive ? "text-[#1D3B53]" : "text-slate-400"
               )
             }
           >
             <Icon className="h-5 w-5" />
-            {label}
+            {label.split(" ")[0]}
           </NavLink>
         ))}
       </div>

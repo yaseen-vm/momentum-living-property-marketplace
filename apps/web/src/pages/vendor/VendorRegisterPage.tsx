@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, Upload, CheckCircle } from "lucide-react";
+import { Upload, CheckCircle } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuthStore } from "../../store/auth";
 import { Button } from "../../components/ui/Button";
@@ -93,11 +93,13 @@ export default function VendorRegisterPage() {
   ];
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-primary-50 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-lg">
-        <div className="mb-6 flex justify-center gap-2 items-center">
-          <Building2 className="h-8 w-8 text-primary-600" />
-          <span className="text-xl font-bold text-slate-900">Momentum Living</span>
+        <div className="mb-6 text-center">
+          <div className="text-2xl font-bold italic font-serif text-[#1D3B53]">
+            Momentum<span className="font-sans font-semibold not-italic">Living</span>
+          </div>
+          <p className="text-sm text-slate-500 mt-1">Owner Registration</p>
         </div>
 
         {/* Progress */}
