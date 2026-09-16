@@ -26,7 +26,9 @@ adminBookingRoutes.get("/", requireAuth(["admin"]), async (c) => {
             l.location_text as listing_location, l.price as listing_price, l.currency as listing_currency,
             l.size_sqft as listing_size, l.bedrooms as listing_bedrooms, l.bathrooms as listing_bathrooms,
             l.total_capacity as listing_total_capacity, l.num_rooms as listing_num_rooms,
-            vu.id as vendor_id, vu.name as vendor_name, vu.mobile as vendor_mobile
+            vu.id as vendor_id, vu.name as vendor_name, vu.mobile as vendor_mobile,
+            (SELECT json_group_array(json_object('id', bn.id, 'body', bn.body, 'created_at', bn.created_at))
+             FROM booking_notes bn WHERE bn.booking_id = b.id ORDER BY bn.created_at ASC) as notes_json
      FROM bookings b
      JOIN users cu ON cu.id = b.customer_id
      JOIN listings l ON l.id = b.listing_id
@@ -63,6 +65,7 @@ adminBookingRoutes.get("/", requireAuth(["admin"]), async (c) => {
                 num_rooms: r.listing_num_rooms ?? null,
             },
             vendor: { id: r.vendor_id, name: r.vendor_name, mobile: r.vendor_mobile },
+            notes: r.notes_json ? JSON.parse(r.notes_json) : [],
         })),
     });
 });
