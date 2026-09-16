@@ -34,6 +34,10 @@ export async function sendEmail(
   html: string,
   env: Bindings
 ): Promise<void> {
+  if (!env.RESEND_API_KEY || env.RESEND_API_KEY.startsWith("re_placeholder")) {
+    console.log(`[FALLBACK] Email to ${to} — subject: ${subject}`);
+    return;
+  }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {

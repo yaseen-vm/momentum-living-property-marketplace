@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Bindings, Variables } from "../types";
 import { generateOtp, hashOtp, verifyOtp } from "../lib/otp";
 import { signJwt } from "../lib/jwt";
-import { sendOtpSms } from "../agents/otp";
+import { sendOtpSms, isFallbackMode, FALLBACK_OTP } from "../agents/otp";
 
 const E164_RE = /^\+[1-9]\d{7,14}$/;
 const OTP_TTL_MS = 5 * 60 * 1000;
@@ -34,7 +34,7 @@ authRoutes.post("/otp/send", async (c) => {
       const newCount = resendCount + 1;
       await c.env.KV.put(`otp:rate:${mobile}`, String(newCount), { expirationTtl: 600 });
 
-      const otp = generateOtp();
+      const otp = isFallbackMode(c.env) ? FALLBACK_OTP : generateOtp();
       const codeHash = await hashOtp(otp, c.env.JWT_SECRET);
       const now = Date.now();
       const expiresAt = now + OTP_TTL_MS;
