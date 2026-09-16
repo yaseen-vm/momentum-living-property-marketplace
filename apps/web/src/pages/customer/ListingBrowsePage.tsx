@@ -12,9 +12,9 @@ import type { ListingSummary } from "../../lib/api";
 
 const LISTING_TYPES = [
   { value: "", label: "All Types" },
-  { value: "property", label: "Property" },
-  { value: "plot", label: "Plot" },
-  { value: "room", label: "Room" },
+  { value: "labour_camp", label: "Labour Camp" },
+  { value: "warehouse", label: "Warehouse" },
+  { value: "land", label: "Land / Plot" },
 ];
 
 const SORT_OPTIONS = [

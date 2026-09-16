@@ -4,15 +4,27 @@ import { requireAuth } from "../../middleware/auth";
 
 export const vendorProfileRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+const VALID_VENDOR_TYPES = [
+  "labour_camp_landlord",
+  "labour_camp_management",
+  "warehouse_landlord",
+  "warehouse_management",
+  "land_seller",
+];
+
 vendorProfileRoutes.post("/register", requireAuth(["vendor"]), async (c) => {
   const payload = c.get("jwtPayload");
   const body = await c.req.json<{
     vendor_type?: string;
     company_name?: string;
-    licence_no?: string;
+    trade_licence_no?: string;
+    vat_no?: string;
+    authorized_signatory?: string;
+    whatsapp_no?: string;
+    document_r2_keys?: Array<{ label: string; r2_key: string }>;
   }>();
 
-  if (!body.vendor_type || !["landlord", "company", "agent", "broker"].includes(body.vendor_type)) {
+  if (!body.vendor_type || !VALID_VENDOR_TYPES.includes(body.vendor_type)) {
     return c.json({ error: { code: "VALIDATION_ERROR", message: "Invalid vendor_type" } }, 422);
   }
 
@@ -27,17 +39,41 @@ vendorProfileRoutes.post("/register", requireAuth(["vendor"]), async (c) => {
   if (existing) {
     vendorId = existing.id;
     await c.env.DB.prepare(
-      "UPDATE vendor_profiles SET vendor_type = ?, company_name = ?, licence_no = ?, status = 'pending', updated_at = ? WHERE id = ?"
+      `UPDATE vendor_profiles SET
+        vendor_type = ?, company_name = ?, trade_licence_no = ?, vat_no = ?,
+        authorized_signatory = ?, whatsapp_no = ?, status = 'pending', updated_at = ?
+       WHERE id = ?`
     )
-      .bind(body.vendor_type, body.company_name ?? null, body.licence_no ?? null, now, vendorId)
+      .bind(
+        body.vendor_type, body.company_name ?? null, body.trade_licence_no ?? null,
+        body.vat_no ?? null, body.authorized_signatory ?? null, body.whatsapp_no ?? null,
+        now, vendorId
+      )
       .run();
   } else {
     vendorId = crypto.randomUUID();
     await c.env.DB.prepare(
-      "INSERT INTO vendor_profiles (id, user_id, vendor_type, status, company_name, licence_no, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)"
+      `INSERT INTO vendor_profiles
+        (id, user_id, vendor_type, status, company_name, trade_licence_no, vat_no,
+         authorized_signatory, whatsapp_no, created_at, updated_at)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(vendorId, payload.sub, body.vendor_type, body.company_name ?? null, body.licence_no ?? null, now, now)
+      .bind(
+        vendorId, payload.sub, body.vendor_type, body.company_name ?? null,
+        body.trade_licence_no ?? null, body.vat_no ?? null,
+        body.authorized_signatory ?? null, body.whatsapp_no ?? null,
+        now, now
+      )
       .run();
+  }
+
+  if (body.document_r2_keys?.length) {
+    const stmts = body.document_r2_keys.map(({ label, r2_key }) =>
+      c.env.DB.prepare(
+        "INSERT INTO vendor_documents (id, vendor_id, label, r2_key, uploaded_at) VALUES (?, ?, ?, ?, ?)"
+      ).bind(crypto.randomUUID(), vendorId, label, r2_key, now)
+    );
+    await c.env.DB.batch(stmts);
   }
 
   c.executionCtx.waitUntil(
@@ -92,7 +128,10 @@ vendorProfileRoutes.get("/profile", requireAuth(["vendor"]), async (c) => {
       vendor_type: string;
       status: string;
       company_name: string | null;
-      licence_no: string | null;
+      trade_licence_no: string | null;
+      vat_no: string | null;
+      authorized_signatory: string | null;
+      whatsapp_no: string | null;
       admin_note: string | null;
       created_at: number;
       name: string;
@@ -123,7 +162,14 @@ vendorProfileRoutes.get("/profile", requireAuth(["vendor"]), async (c) => {
 
 vendorProfileRoutes.put("/profile", requireAuth(["vendor"]), async (c) => {
   const payload = c.get("jwtPayload");
-  const body = await c.req.json<{ name?: string; company_name?: string; licence_no?: string }>();
+  const body = await c.req.json<{
+    name?: string;
+    company_name?: string;
+    trade_licence_no?: string;
+    vat_no?: string;
+    authorized_signatory?: string;
+    whatsapp_no?: string;
+  }>();
   const now = Date.now();
 
   if (body.name !== undefined) {
@@ -133,9 +179,20 @@ vendorProfileRoutes.put("/profile", requireAuth(["vendor"]), async (c) => {
   }
 
   await c.env.DB.prepare(
-    "UPDATE vendor_profiles SET company_name = COALESCE(?, company_name), licence_no = COALESCE(?, licence_no), updated_at = ? WHERE user_id = ?"
+    `UPDATE vendor_profiles SET
+      company_name = COALESCE(?, company_name),
+      trade_licence_no = COALESCE(?, trade_licence_no),
+      vat_no = COALESCE(?, vat_no),
+      authorized_signatory = COALESCE(?, authorized_signatory),
+      whatsapp_no = COALESCE(?, whatsapp_no),
+      updated_at = ?
+     WHERE user_id = ?`
   )
-    .bind(body.company_name ?? null, body.licence_no ?? null, now, payload.sub)
+    .bind(
+      body.company_name ?? null, body.trade_licence_no ?? null, body.vat_no ?? null,
+      body.authorized_signatory ?? null, body.whatsapp_no ?? null,
+      now, payload.sub
+    )
     .run();
 
   return c.json({ ok: true });

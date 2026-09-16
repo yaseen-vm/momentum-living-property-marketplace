@@ -9,19 +9,35 @@ import { useAuthStore } from "../../store/auth";
 import { Button } from "../../components/ui/Button";
 import { Input, Select } from "../../components/ui/Input";
 
-type VendorType = "landlord" | "company" | "agent" | "broker";
+type VendorType =
+  | "labour_camp_landlord"
+  | "labour_camp_management"
+  | "warehouse_landlord"
+  | "warehouse_management"
+  | "land_seller";
+
+const VENDOR_TYPE_OPTIONS: { value: VendorType; label: string; description: string }[] = [
+  { value: "labour_camp_landlord", label: "Labour Camp Landlord", description: "Owner of a labour camp accommodation" },
+  { value: "labour_camp_management", label: "Labour Camp Management", description: "Managing company operating on behalf of a landlord" },
+  { value: "warehouse_landlord", label: "Warehouse Landlord", description: "Owner of a warehouse or industrial unit" },
+  { value: "warehouse_management", label: "Warehouse Management", description: "Managing company for warehouse properties" },
+  { value: "land_seller", label: "Land Seller", description: "Owner selling freehold or leasehold land" },
+];
 
 const DOCUMENTS: Record<VendorType, string[]> = {
-  landlord: ["Ownership Proof", "National ID"],
-  company: ["Trade Licence", "Authorised Signatory ID"],
-  agent: ["Agency Licence", "Personal ID"],
-  broker: ["Brokerage Certificate", "Personal ID"],
+  labour_camp_landlord: ["Trade Licence", "Title Deed / Ownership Proof"],
+  labour_camp_management: ["Trade Licence", "Management Agreement", "Authorised Signatory ID"],
+  warehouse_landlord: ["Trade Licence", "Title Deed / Ownership Proof"],
+  warehouse_management: ["Trade Licence", "Management Agreement", "Authorised Signatory ID"],
+  land_seller: ["Trade Licence", "Title Deed / Ownership Proof", "NOC (if applicable)"],
 };
 
 const detailsSchema = z.object({
-  name: z.string().min(2, "Full name required"),
-  company_name: z.string().optional(),
-  licence_no: z.string().optional(),
+  company_name: z.string().min(2, "Company name required"),
+  authorized_signatory: z.string().min(2, "Authorised signatory name required"),
+  trade_licence_no: z.string().min(2, "Trade licence number required"),
+  vat_no: z.string().optional(),
+  whatsapp_no: z.string().optional(),
 });
 
 type DetailsForm = z.infer<typeof detailsSchema>;
@@ -58,7 +74,7 @@ export default function VendorRegisterPage() {
 
   async function handleSubmitRegistration() {
     if (!token || !vendorType || !details) return;
-    const docs = vendorType ? DOCUMENTS[vendorType] : [];
+    const docs = DOCUMENTS[vendorType];
     const missingDocs = docs.filter((label) => !uploads[label]);
     if (missingDocs.length > 0) {
       setError(`Please upload all required documents: ${missingDocs.join(", ")}`);
@@ -70,8 +86,11 @@ export default function VendorRegisterPage() {
       await api.vendor.register(
         {
           vendor_type: vendorType,
-          company_name: details.company_name ?? undefined,
-          licence_no: details.licence_no ?? undefined,
+          company_name: details.company_name,
+          trade_licence_no: details.trade_licence_no,
+          vat_no: details.vat_no || undefined,
+          authorized_signatory: details.authorized_signatory,
+          whatsapp_no: details.whatsapp_no || undefined,
           document_r2_keys: Object.entries(uploads).map(([label, r2_key]) => ({ label, r2_key })),
         },
         token
@@ -84,13 +103,6 @@ export default function VendorRegisterPage() {
     }
   }
 
-  const vendorTypeOptions = [
-    { value: "landlord", label: "Landlord — Individual property owner" },
-    { value: "company", label: "Company — Real estate company" },
-    { value: "agent", label: "Agent — Licensed real estate agent" },
-    { value: "broker", label: "Broker — Certified property broker" },
-  ];
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-lg">
@@ -101,7 +113,6 @@ export default function VendorRegisterPage() {
           <p className="text-sm text-slate-500 mt-1">Owner Registration</p>
         </div>
 
-        {/* Progress */}
         <div className="mb-8 flex items-center justify-center gap-4">
           {[1, 2, 3].map((s) => (
             <div key={s} className="flex items-center gap-2">
@@ -124,32 +135,26 @@ export default function VendorRegisterPage() {
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           {step === 1 && (
             <div>
-              <h2 className="mb-1 text-xl font-bold text-slate-900">Select Vendor Type</h2>
-              <p className="mb-6 text-sm text-slate-500">
-                Choose the category that best describes you
-              </p>
+              <h2 className="mb-1 text-xl font-bold text-slate-900">Select Owner Type</h2>
+              <p className="mb-6 text-sm text-slate-500">Choose the category that best describes your business</p>
               <div className="grid gap-3">
-                {vendorTypeOptions.map((opt) => (
+                {VENDOR_TYPE_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => setVendorType(opt.value as VendorType)}
+                    onClick={() => setVendorType(opt.value)}
                     className={`rounded-xl border-2 p-4 text-left transition-all ${
                       vendorType === opt.value
                         ? "border-primary-500 bg-primary-50"
                         : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <span className="font-medium text-slate-900">{opt.label.split(" — ")[0]}</span>
-                    <span className="ml-2 text-sm text-slate-500">{opt.label.split(" — ")[1]}</span>
+                    <p className="font-medium text-slate-900">{opt.label}</p>
+                    <p className="text-sm text-slate-500 mt-0.5">{opt.description}</p>
                   </button>
                 ))}
               </div>
-              <Button
-                className="mt-6 w-full"
-                disabled={!vendorType}
-                onClick={() => setStep(2)}
-              >
+              <Button className="mt-6 w-full" disabled={!vendorType} onClick={() => setStep(2)}>
                 Continue
               </Button>
             </div>
@@ -162,24 +167,39 @@ export default function VendorRegisterPage() {
                 setStep(3);
               })}
             >
-              <h2 className="mb-1 text-xl font-bold text-slate-900">Your Details</h2>
-              <p className="mb-6 text-sm text-slate-500">Tell us about yourself</p>
+              <h2 className="mb-1 text-xl font-bold text-slate-900">Company Details</h2>
+              <p className="mb-6 text-sm text-slate-500">Enter your business information</p>
               <div className="space-y-4">
-                <Input label="Full Name" {...register("name")} error={errors.name?.message} />
-                {(vendorType === "company" || vendorType === "agent" || vendorType === "broker") && (
-                  <Input
-                    label="Company / Agency Name"
-                    {...register("company_name")}
-                    error={errors.company_name?.message}
-                  />
-                )}
-                {(vendorType === "company" || vendorType === "agent" || vendorType === "broker") && (
-                  <Input
-                    label="Licence / Registration Number"
-                    {...register("licence_no")}
-                    error={errors.licence_no?.message}
-                  />
-                )}
+                <Input
+                  label="Company / Business Name"
+                  placeholder="e.g. Al Noor Properties LLC"
+                  {...register("company_name")}
+                  error={errors.company_name?.message}
+                />
+                <Input
+                  label="Authorised Signatory Name"
+                  placeholder="Full name of the authorised person"
+                  {...register("authorized_signatory")}
+                  error={errors.authorized_signatory?.message}
+                />
+                <Input
+                  label="Trade Licence Number"
+                  placeholder="e.g. 1234567"
+                  {...register("trade_licence_no")}
+                  error={errors.trade_licence_no?.message}
+                />
+                <Input
+                  label="VAT Registration Number (optional)"
+                  placeholder="e.g. 100123456789003"
+                  {...register("vat_no")}
+                  error={errors.vat_no?.message}
+                />
+                <Input
+                  label="WhatsApp Number (optional)"
+                  placeholder="e.g. +971501234567"
+                  {...register("whatsapp_no")}
+                  error={errors.whatsapp_no?.message}
+                />
               </div>
               <div className="mt-6 flex gap-3">
                 <Button variant="secondary" type="button" onClick={() => setStep(1)}>
@@ -196,7 +216,7 @@ export default function VendorRegisterPage() {
             <div>
               <h2 className="mb-1 text-xl font-bold text-slate-900">Upload Documents</h2>
               <p className="mb-6 text-sm text-slate-500">
-                Required documents for {vendorType} verification
+                Required documents for verification (PDF, JPG, PNG — max 5 MB each)
               </p>
               <div className="space-y-4">
                 {DOCUMENTS[vendorType].map((label) => (
@@ -211,7 +231,7 @@ export default function VendorRegisterPage() {
                       <label className="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-slate-300 px-4 py-4 hover:border-primary-400 hover:bg-primary-50">
                         <Upload className="h-5 w-5 text-slate-400" />
                         <span className="text-sm text-slate-500">
-                          {uploading[label] ? "Uploading…" : "Click to upload (PDF, JPG, PNG — max 5MB)"}
+                          {uploading[label] ? "Uploading…" : "Click to upload"}
                         </span>
                         <input
                           type="file"
@@ -233,11 +253,7 @@ export default function VendorRegisterPage() {
                 <Button variant="secondary" type="button" onClick={() => setStep(2)}>
                   Back
                 </Button>
-                <Button
-                  className="flex-1"
-                  loading={submitting}
-                  onClick={() => void handleSubmitRegistration()}
-                >
+                <Button className="flex-1" loading={submitting} onClick={() => void handleSubmitRegistration()}>
                   Submit for Review
                 </Button>
               </div>

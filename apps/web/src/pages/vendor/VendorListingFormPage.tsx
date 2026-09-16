@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
@@ -11,13 +11,36 @@ import { Button } from "../../components/ui/Button";
 import { Input, Textarea, Select } from "../../components/ui/Input";
 import { PageSpinner } from "../../components/ui/Spinner";
 
-const AMENITIES = [
-  "Parking", "Swimming Pool", "Gym", "Security", "Balcony", "Garden",
-  "AC", "Furnished", "Internet", "Elevator", "Pet Friendly", "Laundry",
+const LISTING_TYPES = [
+  { value: "labour_camp", label: "Labour Camp" },
+  { value: "warehouse", label: "Warehouse" },
+  { value: "land", label: "Land / Plot" },
 ];
 
+const AMENITIES_LABOUR_CAMP = [
+  "AC", "Wifi", "CCTV", "Canteen", "Laundry", "Gym", "Prayer Room",
+  "Parking", "24/7 Security", "Separate Toilets", "First Aid",
+];
+
+const AMENITIES_WAREHOUSE = [
+  "Electricity (3-phase)", "Water Supply", "CCTV", "Fire Suppression",
+  "Parking", "24/7 Security", "Office Space", "Mezzanine Floor",
+  "Roller Shutter", "Racking System",
+];
+
+const AMENITIES_LAND = [
+  "Road Access", "Electricity Connection", "Water Connection",
+  "Sewage Connection", "Boundary Wall", "Corner Plot",
+];
+
+const AMENITIES_BY_TYPE: Record<string, string[]> = {
+  labour_camp: AMENITIES_LABOUR_CAMP,
+  warehouse: AMENITIES_WAREHOUSE,
+  land: AMENITIES_LAND,
+};
+
 const listingSchema = z.object({
-  type: z.enum(["property", "plot", "room"]),
+  type: z.enum(["labour_camp", "warehouse", "land"]),
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(20, "Description must be at least 20 characters"),
   price: z.coerce.number().positive("Price must be positive"),
@@ -25,8 +48,23 @@ const listingSchema = z.object({
   location_text: z.string().min(3, "Location required"),
   location_slug: z.string().min(3),
   size_sqft: z.coerce.number().positive().optional().or(z.literal("")),
-  bedrooms: z.coerce.number().int().nonnegative().optional().or(z.literal("")),
-  bathrooms: z.coerce.number().int().nonnegative().optional().or(z.literal("")),
+  // Labour camp
+  num_rooms: z.coerce.number().int().positive().optional().or(z.literal("")),
+  persons_per_room: z.coerce.number().int().positive().optional().or(z.literal("")),
+  room_size_sqft: z.coerce.number().positive().optional().or(z.literal("")),
+  total_capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
+  mohre_certified: z.boolean().default(false),
+  ejari_registered: z.boolean().default(false),
+  // Warehouse
+  num_loading_bays: z.coerce.number().int().nonnegative().optional().or(z.literal("")),
+  year_built: z.coerce.number().int().optional().or(z.literal("")),
+  // Land
+  freehold: z.boolean().default(false),
+  // Financial
+  security_deposit_pct: z.coerce.number().min(0).max(100).optional().or(z.literal("")),
+  commission_pct: z.coerce.number().min(0).max(100).optional().or(z.literal("")),
+  ejari_fee: z.coerce.number().nonnegative().optional().or(z.literal("")),
+  admin_fee: z.coerce.number().nonnegative().optional().or(z.literal("")),
   amenities: z.array(z.string()).default([]),
 });
 
@@ -36,6 +74,10 @@ interface PhotoPreview {
   url: string;
   key: string;
   uploading?: boolean;
+}
+
+function numericOrUndefined(v: number | "" | undefined) {
+  return v === "" || v === undefined ? undefined : Number(v);
 }
 
 export default function VendorListingFormPage() {
@@ -58,7 +100,6 @@ export default function VendorListingFormPage() {
   const {
     register,
     handleSubmit,
-    control,
     setValue,
     watch,
     formState: { errors },
@@ -66,7 +107,7 @@ export default function VendorListingFormPage() {
     resolver: zodResolver(listingSchema),
     defaultValues: existing
       ? {
-          type: existing.type as "property" | "plot" | "room",
+          type: existing.type as "labour_camp" | "warehouse" | "land",
           title: existing.title,
           description: "",
           price: existing.price,
@@ -74,11 +115,16 @@ export default function VendorListingFormPage() {
           location_text: existing.location_text,
           location_slug: "",
           amenities: [],
+          mohre_certified: false,
+          ejari_registered: false,
+          freehold: false,
         }
-      : { currency: "AED", amenities: [] },
+      : { currency: "AED", amenities: [], mohre_certified: false, ejari_registered: false, freehold: false },
   });
 
-  const locationText = watch("location_text");
+  const listingType = watch("type");
+  const selectedAmenities = watch("amenities");
+  const amenityList = AMENITIES_BY_TYPE[listingType] ?? [];
 
   function toSlug(text: string) {
     return text.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -114,9 +160,17 @@ export default function VendorListingFormPage() {
     try {
       const body = {
         ...data,
-        size_sqft: data.size_sqft || undefined,
-        bedrooms: data.bedrooms || undefined,
-        bathrooms: data.bathrooms || undefined,
+        size_sqft: numericOrUndefined(data.size_sqft),
+        num_rooms: numericOrUndefined(data.num_rooms),
+        persons_per_room: numericOrUndefined(data.persons_per_room),
+        room_size_sqft: numericOrUndefined(data.room_size_sqft),
+        total_capacity: numericOrUndefined(data.total_capacity),
+        num_loading_bays: numericOrUndefined(data.num_loading_bays),
+        year_built: numericOrUndefined(data.year_built),
+        security_deposit_pct: numericOrUndefined(data.security_deposit_pct),
+        commission_pct: numericOrUndefined(data.commission_pct),
+        ejari_fee: numericOrUndefined(data.ejari_fee),
+        admin_fee: numericOrUndefined(data.admin_fee),
         photo_r2_keys: photos.filter((p) => p.key).map((p, i) => ({ r2_key: p.key, display_order: i })),
       };
       if (isEditing) {
@@ -136,8 +190,6 @@ export default function VendorListingFormPage() {
 
   if (isEditing && isLoading) return <PageSpinner />;
 
-  const selectedAmenities = watch("amenities");
-
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -153,19 +205,17 @@ export default function VendorListingFormPage() {
 
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <form className="space-y-6">
+
+          {/* ── Basic Info ── */}
           <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
-            <h2 className="font-semibold text-slate-900">Basic Info</h2>
+            <h2 className="font-semibold text-slate-900">Basic Information</h2>
             <Select
-              label="Listing Type"
-              options={[
-                { value: "property", label: "Property" },
-                { value: "plot", label: "Plot" },
-                { value: "room", label: "Room" },
-              ]}
+              label="Property Type"
+              options={LISTING_TYPES}
               {...register("type")}
               error={errors.type?.message}
             />
-            <Input label="Title" placeholder="e.g. Spacious 3BHK Villa in Dubai Marina" {...register("title")} error={errors.title?.message} />
+            <Input label="Listing Title" placeholder="e.g. Labour Camp — 500 Beds, Sonapur" {...register("title")} error={errors.title?.message} />
             <Textarea
               label="Description"
               placeholder="Describe the property in detail…"
@@ -175,23 +225,20 @@ export default function VendorListingFormPage() {
             />
           </div>
 
+          {/* ── Pricing & Location ── */}
           <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
             <h2 className="font-semibold text-slate-900">Pricing & Location</h2>
             <div className="grid grid-cols-2 gap-4">
-              <Input label="Price" type="number" {...register("price")} error={errors.price?.message} />
+              <Input label="Price (AED)" type="number" {...register("price")} error={errors.price?.message} />
               <Select
                 label="Currency"
-                options={[
-                  { value: "AED", label: "AED" },
-                  { value: "INR", label: "INR" },
-                  { value: "USD", label: "USD" },
-                ]}
+                options={[{ value: "AED", label: "AED" }, { value: "USD", label: "USD" }]}
                 {...register("currency")}
               />
             </div>
             <Input
               label="Location"
-              placeholder="e.g. Dubai Marina, Dubai"
+              placeholder="e.g. Al Quoz Industrial Area, Dubai"
               {...register("location_text", {
                 onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
                   setValue("location_slug", toSlug(e.target.value));
@@ -205,19 +252,83 @@ export default function VendorListingFormPage() {
               hint="Used for URL-friendly filtering"
               error={errors.location_slug?.message}
             />
+            <Input label="Total Area (sqft)" type="number" {...register("size_sqft")} hint="Total land / building area" />
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
-            <h2 className="font-semibold text-slate-900">Property Details</h2>
-            <div className="grid grid-cols-3 gap-4">
-              <Input label="Size (sqft)" type="number" {...register("size_sqft")} />
-              <Input label="Bedrooms" type="number" {...register("bedrooms")} />
-              <Input label="Bathrooms" type="number" {...register("bathrooms")} />
+          {/* ── Labour Camp Details ── */}
+          {listingType === "labour_camp" && (
+            <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
+              <h2 className="font-semibold text-slate-900">Labour Camp Details</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Number of Rooms" type="number" {...register("num_rooms")} error={errors.num_rooms?.message} />
+                <Input label="Persons per Room" type="number" {...register("persons_per_room")} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Room Size (sqft)" type="number" {...register("room_size_sqft")} />
+                <Input label="Total Capacity (persons)" type="number" {...register("total_capacity")} />
+              </div>
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" {...register("mohre_certified")} className="h-4 w-4 rounded border-slate-300 text-primary-600" />
+                  <span className="text-sm font-medium text-slate-700">Mohre Certified</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" {...register("ejari_registered")} className="h-4 w-4 rounded border-slate-300 text-primary-600" />
+                  <span className="text-sm font-medium text-slate-700">Ejari Registered</span>
+                </label>
+              </div>
             </div>
-            <div>
-              <p className="mb-2 text-sm font-medium text-slate-700">Amenities</p>
+          )}
+
+          {/* ── Warehouse Details ── */}
+          {listingType === "warehouse" && (
+            <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
+              <h2 className="font-semibold text-slate-900">Warehouse Details</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Number of Loading Bays" type="number" {...register("num_loading_bays")} />
+                <Input label="Year Built" type="number" placeholder="e.g. 2018" {...register("year_built")} />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" {...register("ejari_registered")} className="h-4 w-4 rounded border-slate-300 text-primary-600" />
+                  <span className="text-sm font-medium text-slate-700">Ejari Registered</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* ── Land Details ── */}
+          {listingType === "land" && (
+            <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
+              <h2 className="font-semibold text-slate-900">Land Details</h2>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" {...register("freehold")} className="h-4 w-4 rounded border-slate-300 text-primary-600" />
+                  <span className="text-sm font-medium text-slate-700">Freehold (unchecked = Leasehold)</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* ── Financial Terms ── */}
+          <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
+            <h2 className="font-semibold text-slate-900">Financial Terms</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Security Deposit (%)" type="number" step="0.5" {...register("security_deposit_pct")} hint="e.g. 5 for 5%" />
+              <Input label="Agency Commission (%)" type="number" step="0.5" {...register("commission_pct")} hint="Commission to Momentum Living" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Ejari Fee (AED)" type="number" {...register("ejari_fee")} />
+              <Input label="Admin Fee (AED)" type="number" {...register("admin_fee")} />
+            </div>
+          </div>
+
+          {/* ── Amenities ── */}
+          {amenityList.length > 0 && (
+            <div className="rounded-xl bg-white p-6 shadow-sm space-y-4">
+              <h2 className="font-semibold text-slate-900">Amenities & Features</h2>
               <div className="flex flex-wrap gap-2">
-                {AMENITIES.map((amenity) => {
+                {amenityList.map((amenity) => {
                   const selected = selectedAmenities.includes(amenity);
                   return (
                     <button
@@ -241,8 +352,9 @@ export default function VendorListingFormPage() {
                 })}
               </div>
             </div>
-          </div>
+          )}
 
+          {/* ── Photos ── */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
             <h2 className="mb-4 font-semibold text-slate-900">Photos (up to 20)</h2>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">

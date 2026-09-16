@@ -205,7 +205,10 @@ export interface VendorProfile {
   vendor_type: string;
   status: string;
   company_name: string | null;
-  licence_no: string | null;
+  trade_licence_no: string | null;
+  vat_no: string | null;
+  authorized_signatory: string | null;
+  whatsapp_no: string | null;
   admin_note: string | null;
   documents: Array<{ id: string; label: string; r2_key: string; url?: string }>;
 }
@@ -213,7 +216,10 @@ export interface VendorProfile {
 export interface VendorRegisterBody {
   vendor_type: string;
   company_name?: string;
-  licence_no?: string;
+  trade_licence_no?: string;
+  vat_no?: string;
+  authorized_signatory?: string;
+  whatsapp_no?: string;
   document_r2_keys: Array<{ label: string; r2_key: string }>;
 }
 
@@ -226,8 +232,23 @@ export interface ListingFormData {
   location_text: string;
   location_slug: string;
   size_sqft?: number;
-  bedrooms?: number;
-  bathrooms?: number;
+  // Labour camp
+  num_rooms?: number;
+  persons_per_room?: number;
+  room_size_sqft?: number;
+  total_capacity?: number;
+  mohre_certified?: boolean;
+  ejari_registered?: boolean;
+  // Warehouse
+  num_loading_bays?: number;
+  year_built?: number;
+  // Land
+  freehold?: boolean;
+  // Financial
+  security_deposit_pct?: number;
+  commission_pct?: number;
+  ejari_fee?: number;
+  admin_fee?: number;
   amenities: string[];
   photo_r2_keys: Array<{ r2_key: string; display_order: number }>;
 }
