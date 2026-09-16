@@ -104,7 +104,8 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
       - name: Deploy to Cloudflare Pages
-        run: pnpm wrangler pages deploy apps/web/dist --project-name=momentum-living-web --commit-dirty=true
+        working-directory: apps/web
+        run: pnpm exec wrangler pages deploy dist --project-name=momentum-living-web --commit-dirty=true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
