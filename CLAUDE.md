@@ -86,6 +86,26 @@ Admin:   owner verification queue → listing approval queue
          → booking requests panel → CSV export (customers / owners)
 ```
 
+## Docs Are the Source of Truth
+
+The `docs/` folder must stay in sync with the code at all times. If a code change affects anything documented, update the relevant doc file in the **same commit** — never after.
+
+| If you change… | Update… |
+|----------------|---------|
+| A D1 table, column, or index | `docs/data-model.md` |
+| An API route, request shape, or response shape | `docs/api-spec.md` |
+| An async agent task or its tools | `docs/agent-spec.md` |
+| A listing provider adapter | `docs/job-sources.md` |
+| The tech stack, a library swap, or a Cloudflare service | `docs/techstack.md` |
+| System components, request flows, or deployment topology | `docs/architecture.md` |
+| Auth, secrets, file access, or security rules | `docs/security.md` |
+| A user-facing feature or flow | `docs/requirements.md` |
+| A phase milestone or backlog item | `docs/roadmap.md` |
+
+A commit that adds a new feature or changes behaviour without updating the matching doc is incomplete. Code and docs must always describe the same system.
+
+---
+
 ## Git Workflow
 
 **Before every commit:** run linting and fix all errors before staging.
