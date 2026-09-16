@@ -30,8 +30,8 @@ async function importKey(secret: string): Promise<CryptoKey> {
 
 export async function signJwt(payload: JwtPayload, secret: string): Promise<string> {
   const enc = new TextEncoder();
-  const header = base64urlEncode(enc.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })).buffer);
-  const body = base64urlEncode(enc.encode(JSON.stringify(payload)).buffer);
+  const header = base64urlEncode(enc.encode(JSON.stringify({ alg: "HS256", typ: "JWT" })).buffer as ArrayBuffer);
+  const body = base64urlEncode(enc.encode(JSON.stringify(payload)).buffer as ArrayBuffer);
   const signingInput = `${header}.${body}`;
   const key = await importKey(secret);
   const sig = await crypto.subtle.sign("HMAC", key, enc.encode(signingInput));

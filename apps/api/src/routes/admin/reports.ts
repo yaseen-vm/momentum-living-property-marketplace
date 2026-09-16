@@ -9,8 +9,7 @@ adminReportRoutes.get("/", requireAuth(["admin"]), async (c) => {
   const fromMs = from ? parseInt(from, 10) : 0;
   const toMs = to ? parseInt(to, 10) : Date.now();
 
-  const [listingStats, vendorStats, customerStats, bookingStats, listingByType] =
-    await c.env.DB.batch([
+  const results = await c.env.DB.batch([
       c.env.DB.prepare(
         `SELECT status, COUNT(*) as cnt FROM listings
          WHERE created_at >= ? AND created_at <= ? GROUP BY status`
@@ -33,6 +32,10 @@ adminReportRoutes.get("/", requireAuth(["admin"]), async (c) => {
          WHERE status = 'approved' AND created_at >= ? AND created_at <= ? GROUP BY type`
       ).bind(fromMs, toMs),
     ]);
+
+  const [listingStats, vendorStats, customerStats, bookingStats, listingByType] = results as [
+    typeof results[0], typeof results[0], typeof results[0], typeof results[0], typeof results[0]
+  ];
 
   function toMap(rows: { status: string; cnt: number }[]) {
     return Object.fromEntries(rows.map((r) => [r.status, r.cnt]));
