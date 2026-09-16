@@ -95,8 +95,8 @@ export default function VendorListingFormPage() {
       const placeholder: PhotoPreview = { url: previewUrl, key: "", uploading: true };
       setPhotos((p) => [...p, placeholder]);
       try {
-        const { key, uploadUrl } = await api.upload.presign(file.name, file.type, "listing-photo", token);
-        await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+        const { key, upload_url } = await api.upload.presign(file.name, file.type, "listing_photo", token);
+        await fetch(upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
         setPhotos((p) =>
           p.map((ph) => (ph.url === previewUrl ? { url: previewUrl, key, uploading: false } : ph))
         );
