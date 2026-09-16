@@ -47,8 +47,7 @@ export default function VendorRegisterPage() {
     if (!token) return;
     setUploading((u) => ({ ...u, [label]: true }));
     try {
-      const { key, upload_url } = await api.upload.presign(file.name, file.type, "vendor_doc", token);
-      await fetch(upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+      const { key } = await api.upload.uploadFile(file, "vendor_doc", token);
       setUploads((u) => ({ ...u, [label]: key }));
     } catch (e) {
       setError(`Upload failed for ${label}: ${e instanceof Error ? e.message : "unknown error"}`);

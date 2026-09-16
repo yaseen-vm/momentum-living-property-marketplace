@@ -17,51 +17,48 @@ function extFromContentType(ct: string): string {
   return map[ct] ?? "bin";
 }
 
-uploadRoutes.post("/presign", requireAuth(["vendor", "admin"]), async (c) => {
+// Upload a file directly through the Worker → R2
+uploadRoutes.post("/file", requireAuth(["vendor", "admin"]), async (c) => {
   const payload = c.get("jwtPayload");
-  const body = await c.req.json<{
-    filename?: string;
-    content_type?: string;
-    context?: string;
-  }>();
 
-  if (!body.filename || !body.content_type || !body.context) {
-    return c.json({ error: { code: "VALIDATION_ERROR", message: "filename, content_type, context required" } }, 422);
+  const formData = await c.req.formData();
+  const context = formData.get("context") as string | null;
+  const file = formData.get("file") as File | null;
+
+  if (!context || !file) {
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "context and file are required" } }, 422);
   }
 
-  const isListingPhoto = body.context === "listing_photo";
-  const isVendorDoc = body.context === "vendor_doc";
+  const isListingPhoto = context === "listing_photo";
+  const isVendorDoc = context === "vendor_doc";
 
   if (!isListingPhoto && !isVendorDoc) {
     return c.json({ error: { code: "VALIDATION_ERROR", message: "context must be listing_photo or vendor_doc" } }, 422);
   }
 
-  if (isListingPhoto && !ALLOWED_IMAGE_TYPES.has(body.content_type)) {
-    return c.json({ error: { code: "VALIDATION_ERROR", message: "Invalid image content type" } }, 422);
+  const contentType = file.type;
+
+  if (isListingPhoto && !ALLOWED_IMAGE_TYPES.has(contentType)) {
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "Listing photos must be JPEG, PNG, or WebP" } }, 422);
   }
-  if (isVendorDoc && !ALLOWED_DOC_TYPES.has(body.content_type)) {
-    return c.json({ error: { code: "VALIDATION_ERROR", message: "Invalid document content type" } }, 422);
+  if (isVendorDoc && !ALLOWED_DOC_TYPES.has(contentType)) {
+    return c.json({ error: { code: "VALIDATION_ERROR", message: "Documents must be PDF, JPEG, or PNG" } }, 422);
   }
 
-  const ext = extFromContentType(body.content_type);
+  const maxSize = isListingPhoto ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+  if (file.size > maxSize) {
+    const limit = isListingPhoto ? "10 MB" : "5 MB";
+    return c.json({ error: { code: "VALIDATION_ERROR", message: `File exceeds ${limit} limit` } }, 422);
+  }
+
+  const ext = extFromContentType(contentType);
   const folder = isListingPhoto ? "listing-photos" : "vendor-docs";
   const key = `${folder}/${payload.sub}/${crypto.randomUUID()}.${ext}`;
 
-  const maxSize = isListingPhoto ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+  const buffer = await file.arrayBuffer();
+  await c.env.R2.put(key, buffer, { httpMetadata: { contentType } });
 
-  const uploadUrl = await (c.env.R2 as R2Bucket & {
-    createPresignedUrl: (
-      method: string,
-      key: string,
-      options: { expiresIn: number; contentType?: string; contentLengthRange?: { min: number; max: number } }
-    ) => Promise<string>;
-  }).createPresignedUrl("PUT", key, {
-    expiresIn: 300,
-    contentType: body.content_type,
-    contentLengthRange: { min: 1, max: maxSize },
-  });
-
-  return c.json({ key, upload_url: uploadUrl });
+  return c.json({ key });
 });
 
 uploadRoutes.get("/files/:key{.+}", async (c) => {

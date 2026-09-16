@@ -152,12 +152,21 @@ export const api = {
       request<{ message: string }>(`/admin/notifications/${id}/read`, { method: "PUT", token }),
   },
   upload: {
-    presign: (filename: string, content_type: string, context: string, token: string) =>
-      request<{ key: string; upload_url: string }>("/upload/presign", {
+    uploadFile: async (file: File, context: string, token: string): Promise<{ key: string }> => {
+      const form = new FormData();
+      form.append("context", context);
+      form.append("file", file);
+      const res = await fetch(`${API_BASE}/upload/file`, {
         method: "POST",
-        body: JSON.stringify({ filename, content_type, context }),
-        token,
-      }),
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: { message: res.statusText } })) as { error: { message: string } };
+        throw new Error(err.error?.message ?? res.statusText);
+      }
+      return res.json() as Promise<{ key: string }>;
+    },
   },
 };
 
