@@ -59,8 +59,9 @@ authRoutes.post("/otp/send", async (c) => {
 });
 
 authRoutes.post("/otp/verify", async (c) => {
-  const body = await c.req.json<{ mobile?: string; code?: string; intent?: string }>();
-  const { mobile, code, intent } = body;
+  const body = await c.req.json<{ mobile?: string; otp?: string; code?: string; intent?: string }>();
+  const { mobile, intent } = body;
+  const code = body.otp ?? body.code;
 
   if (!mobile || !E164_RE.test(mobile)) {
     return c.json({ error: { code: "VALIDATION_ERROR", message: "Invalid mobile number" } }, 422);
