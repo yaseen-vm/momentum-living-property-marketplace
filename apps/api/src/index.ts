@@ -23,7 +23,7 @@ app.use(
   cors({
     origin: (origin, c) => {
       if (c.env.ENVIRONMENT === "development") return origin;
-      const allowed = ["https://momentum-living.pages.dev", "https://momentum-living.com"];
+      const allowed = ["https://momentum-living-web.pages.dev", "https://momentum-living.com"];
       return allowed.includes(origin ?? "") ? origin : null;
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
