@@ -17,9 +17,6 @@ customerBookingRoutes.post("/", requireAuth(["customer"]), async (c) => {
   if (!body.listing_id) {
     return c.json({ error: { code: "VALIDATION_ERROR", message: "listing_id required" } }, 422);
   }
-  if (!body.name || !body.email) {
-    return c.json({ error: { code: "VALIDATION_ERROR", message: "name and email are required" } }, 422);
-  }
 
   const listing = await c.env.DB.prepare(
     `SELECT l.id, l.title, l.type, l.location_text, l.status,
@@ -63,13 +60,16 @@ customerBookingRoutes.post("/", requireAuth(["customer"]), async (c) => {
     .bind(payload.sub)
     .first<{ name: string; mobile: string }>();
 
+  const contactName = body.name ?? customer?.name ?? "Unknown";
+  const contactEmail = body.email ?? null;
+
   const bookingId = crypto.randomUUID();
   const now = Date.now();
 
   await c.env.DB.prepare(
     "INSERT INTO bookings (id, customer_id, listing_id, status, customer_name, customer_email, customer_alt_mobile, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)"
   )
-    .bind(bookingId, payload.sub, body.listing_id, body.name, body.email, body.alt_mobile ?? null, now, now)
+    .bind(bookingId, payload.sub, body.listing_id, contactName, contactEmail, body.alt_mobile ?? null, now, now)
     .run();
 
   c.executionCtx.waitUntil(
@@ -87,9 +87,9 @@ customerBookingRoutes.post("/", requireAuth(["customer"]), async (c) => {
       await notifyAdminNewBooking(
         {
           bookingId,
-          customerName: body.name!,
+          customerName: contactName,
           customerMobile: customer?.mobile ?? "",
-          customerEmail: body.email!,
+          customerEmail: contactEmail ?? "",
           customerAltMobile: body.alt_mobile ?? null,
           listingTitle: listing.title,
           listingType: listing.type,
