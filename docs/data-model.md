@@ -16,10 +16,13 @@ All primary keys are **UUIDs** (TEXT) generated with `crypto.randomUUID()` — a
 | `mobile` | TEXT UNIQUE NOT NULL | E.164 format |
 | `mobile_verified_at` | INTEGER | Unix ms; NULL until OTP verified |
 | `role` | TEXT NOT NULL | `customer` \| `vendor` \| `admin` |
+| `last_login_at` | INTEGER | Unix ms; updated on every successful OTP verify |
 | `created_at` | INTEGER NOT NULL | Unix ms |
 | `updated_at` | INTEGER NOT NULL | Unix ms |
 
 Index: `(mobile)` — OTP lookup and uniqueness check.
+Index: `(created_at)` — signup date export filter.
+Index: `(last_login_at)` — last login export filter.
 
 ---
 
@@ -117,7 +120,9 @@ Index: `(listing_id, display_order)`.
 
 ---
 
-### `enquiries`
+### `bookings`
+Booking / interest requests created when a customer clicks "Book" on a listing.
+
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
@@ -129,19 +134,19 @@ Index: `(listing_id, display_order)`.
 | `updated_at` | INTEGER NOT NULL | Unix ms |
 
 Indexes:
-- `(customer_id, listing_id)` UNIQUE — one enquiry per customer-listing pair
-- `(status)` — admin queue filters
-- `(created_at)` — date-range CSV export queries
+- `(customer_id, listing_id)` UNIQUE — one booking per customer-listing pair
+- `(status)` — admin booking queue filters
+- `(created_at)` — date-range export queries
 
 ---
 
-### `enquiry_notes`
-Immutable timeline of admin notes per enquiry.
+### `booking_notes`
+Immutable timeline of admin notes per booking request.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `enquiry_id` | TEXT NOT NULL FK → enquiries | |
+| `booking_id` | TEXT NOT NULL FK → bookings | |
 | `body` | TEXT NOT NULL | |
 | `created_at` | INTEGER NOT NULL | Unix ms |
 
@@ -151,7 +156,7 @@ Immutable timeline of admin notes per enquiry.
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `type` | TEXT NOT NULL | `new_enquiry` \| `vendor_pending` \| `listing_pending` |
+| `type` | TEXT NOT NULL | `new_booking` \| `vendor_pending` \| `listing_pending` |
 | `payload` | TEXT NOT NULL | JSON |
 | `read_at` | INTEGER | Unix ms; NULL = unread |
 | `created_at` | INTEGER NOT NULL | Unix ms |

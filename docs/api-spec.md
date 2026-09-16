@@ -161,19 +161,19 @@ Full listing detail.
 
 ---
 
-### `POST /enquiries`
+### `POST /bookingies`
 Register interest in a listing.
 **Auth:** role=customer
 
 **Request** `{ "listing_id": "a1b2c3d4..." }`
-**Response `201`** `{ "enquiry_id": "a1b2c3d4-..." }`
+**Response `201`** `{ "bookingy_id": "a1b2c3d4-..." }`
 **`409 CONFLICT`** `ALREADY_ENQUIRED`
 **`403 FORBIDDEN`** `LISTING_NOT_AVAILABLE` if listing is not `approved`
 
 ---
 
-### `GET /customer/enquiries`
-**Auth:** role=customer — returns enquiry history with listing summaries and current status.
+### `GET /customer/bookingies`
+**Auth:** role=customer — returns bookingy history with listing summaries and current status.
 
 ---
 
@@ -313,24 +313,33 @@ Listing approval queue.
 
 ---
 
-### `GET /admin/enquiries`
-All enquiries. Query params: `status`, `from` (Unix ms), `to` (Unix ms).
+### `GET /admin/bookingies`
+All bookingies. Query params: `status`, `from` (Unix ms), `to` (Unix ms).
 
-### `PATCH /admin/enquiries/:id`
+### `PATCH /admin/bookingies/:id`
 **Request** `{ "status": "owner_confirmed", "note": "Owner confirmed available" }`
-**Response `200`** — updated enquiry object.
+**Response `200`** — updated bookingy object.
 
 ---
 
 ### `GET /admin/export`
 Generate and stream CSV.
+
 **Query params**
 | Param | Values |
 |-------|--------|
-| `type` | `verified_customers` \| `interested_customers` |
+| `type` | `customers` \| `owners` |
+| `date_field` | `signup` \| `last_login` — which date column to filter on |
 | `period` | `24h` \| `2d` \| `7d` \| `30d` \| `custom` |
 | `from` | Unix ms (required when `period=custom`) |
 | `to` | Unix ms (required when `period=custom`) |
+| `owner_status` | `pending` \| `approved` \| `rejected` \| `all` (owners export only) |
+
+**Column sets**
+
+`customers`: `name, mobile, mobile_verified_at, signup_date, last_login_at`
+
+`owners`: `name, mobile, mobile_verified_at, vendor_type, status, company_name, licence_no, signup_date, last_login_at`
 
 **Response `200`** — `Content-Type: text/csv`, `Content-Disposition: attachment; filename="..."`
 
@@ -346,7 +355,7 @@ Summary metrics with date-range filter.
   "listings": { "total": 340, "approved": 280, "pending": 42, "rejected": 18 },
   "vendors": { "total": 85, "approved": 70, "pending": 12, "rejected": 3 },
   "customers": { "total": 1240, "verified": 1180 },
-  "enquiries": { "total": 430, "closed": 310, "pending": 120 }
+  "bookingies": { "total": 430, "closed": 310, "pending": 120 }
 }
 ```
 
@@ -360,7 +369,7 @@ In-dashboard notification feed.
 {
   "count": 5,
   "items": [
-    { "id": "a1b2c3d4...", "type": "new_enquiry", "payload": { "enquiry_id": "..." }, "created_at": 1722499200000 }
+    { "id": "a1b2c3d4...", "type": "new_bookingy", "payload": { "bookingy_id": "..." }, "created_at": 1722499200000 }
   ]
 }
 ```
