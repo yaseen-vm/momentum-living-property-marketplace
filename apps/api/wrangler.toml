@@ -17,12 +17,4 @@ binding = "R2"
 bucket_name = "momentum-files"
 
 [vars]
-ENVIRONMENT = "development"
-
-[env.dev]
-name = "momentum-api-dev"
-vars = { ENVIRONMENT = "development" }
-
-[env.production]
-name = "momentum-api"
-vars = { ENVIRONMENT = "production" }
+ENVIRONMENT = "production"
