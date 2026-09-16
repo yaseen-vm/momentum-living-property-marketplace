@@ -138,7 +138,7 @@ export const api = {
       request<{ bookings: AdminBooking[]; total: number }>(`/admin/bookings?${new URLSearchParams(params)}`, { token }),
     updateBooking: (id: string, body: { status?: string; admin_note?: string }, token: string) =>
       request<{ message: string }>(`/admin/bookings/${id}`, {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify(body),
         token,
       }),
