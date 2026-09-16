@@ -152,10 +152,10 @@ export const api = {
       request<{ message: string }>(`/admin/notifications/${id}/read`, { method: "PUT", token }),
   },
   upload: {
-    presign: (filename: string, contentType: string, purpose: string, token: string) =>
-      request<{ key: string; uploadUrl: string }>("/upload/presign", {
+    presign: (filename: string, content_type: string, context: string, token: string) =>
+      request<{ key: string; upload_url: string }>("/upload/presign", {
         method: "POST",
-        body: JSON.stringify({ filename, contentType, purpose }),
+        body: JSON.stringify({ filename, content_type, context }),
         token,
       }),
   },
