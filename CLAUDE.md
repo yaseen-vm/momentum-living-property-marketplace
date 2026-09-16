@@ -86,6 +86,24 @@ Admin:   owner verification queue → listing approval queue
          → booking requests panel → CSV export (customers / owners)
 ```
 
+## Git Workflow
+
+**Before every commit:** run linting and fix all errors before staging.
+```bash
+pnpm lint          # from repo root (runs ESLint across all workspaces)
+pnpm typecheck     # tsc --noEmit across all workspaces
+```
+
+**Commit messages:** one short imperative line, 50 characters or fewer.
+```
+Add OTP rate-limit KV helper
+Fix listing status update in D1
+Remove unused vendor type field
+```
+No bullet bodies, no multi-paragraph descriptions — the diff speaks for itself.
+
+---
+
 ## Secrets (Wrangler)
 
 Never in source control. Set via `wrangler secret put`:
