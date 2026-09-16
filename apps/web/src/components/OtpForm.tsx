@@ -81,10 +81,12 @@ export function OtpForm({ onSuccess, title = "Verify your number", subtitle, int
 
   return (
     <div className="mx-auto w-full max-w-sm">
-      <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
-      </div>
+      {title && (
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        </div>
+      )}
 
       {step === "mobile" ? (
         <form onSubmit={mobileForm.handleSubmit(handleSendOtp)} className="space-y-4">

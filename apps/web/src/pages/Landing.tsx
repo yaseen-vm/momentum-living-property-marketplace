@@ -88,7 +88,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <div ref={containerRef} className="min-h-screen bg-white font-sans overflow-hidden text-slate-900 pb-20">
+    <div ref={containerRef} className="min-h-screen bg-white font-sans overflow-hidden text-slate-900">
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-6 max-w-[1400px] mx-auto">
         <div className="text-xl font-bold italic font-serif">
@@ -254,13 +254,13 @@ export default function Landing() {
       {/* Bottom Banner */}
       <section className="bottom-banner px-4 md:px-8 max-w-[1400px] mx-auto">
         <div className="relative rounded-[2.5rem] overflow-hidden min-h-[500px] flex items-end p-12 md:p-20 shadow-2xl shadow-slate-900/20">
-          <img 
-            src="/images/kitchen_interior_1789544288691.jpg" 
+          <img
+            src="/images/kitchen_interior_1789544288691.jpg"
             alt="Kitchen Interior"
             className="absolute inset-0 w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-black/60"></div>
-          
+
           <div className="relative z-10 max-w-xl text-white">
             <h2 className="text-4xl md:text-5xl font-serif mb-6">
               Curated premium <span className="italic">properties</span>
@@ -277,6 +277,75 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="bg-[#1D3B53] text-white mt-24">
+        <div className="max-w-[1400px] mx-auto px-8 pt-20 pb-10">
+
+          {/* Top grid */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-12 pb-16 border-b border-white/10">
+
+            {/* Brand column */}
+            <div className="md:col-span-4">
+              <div className="text-2xl font-bold italic font-serif mb-4">
+                Momentum<span className="font-sans font-semibold not-italic">Living</span>
+              </div>
+              <p className="text-[#A6C0D2] text-sm leading-relaxed max-w-xs">
+                UAE&apos;s premier verified property marketplace. Connecting buyers, renters, and owners through a trusted, transparent platform.
+              </p>
+              <div className="flex items-center gap-4 mt-8">
+                <a
+                  href="mailto:hello@momentumliving.ae"
+                  className="text-[#A6C0D2] hover:text-white text-sm transition-colors"
+                >
+                  hello@momentumliving.ae
+                </a>
+              </div>
+            </div>
+
+            {/* Explore */}
+            <div className="md:col-span-2 md:col-start-6">
+              <h4 className="text-xs tracking-[0.2em] uppercase text-[#A6C0D2] mb-6">Explore</h4>
+              <ul className="space-y-4 text-sm">
+                <li><Link to="/listings" className="hover:text-[#A6C0D2] transition-colors">All Properties</Link></li>
+                <li><Link to="/listings?type=residential" className="hover:text-[#A6C0D2] transition-colors">Residential</Link></li>
+                <li><Link to="/listings?type=plot" className="hover:text-[#A6C0D2] transition-colors">Prime Plots</Link></li>
+                <li><Link to="/listings?type=room" className="hover:text-[#A6C0D2] transition-colors">Rooms</Link></li>
+              </ul>
+            </div>
+
+            {/* Owners */}
+            <div className="md:col-span-2">
+              <h4 className="text-xs tracking-[0.2em] uppercase text-[#A6C0D2] mb-6">For Owners</h4>
+              <ul className="space-y-4 text-sm">
+                <li><Link to="/vendor/login" className="hover:text-[#A6C0D2] transition-colors">List Your Property</Link></li>
+                <li><Link to="/vendor/register" className="hover:text-[#A6C0D2] transition-colors">Register as Owner</Link></li>
+                <li><Link to="/vendor/dashboard" className="hover:text-[#A6C0D2] transition-colors">Owner Dashboard</Link></li>
+              </ul>
+            </div>
+
+            {/* Company */}
+            <div className="md:col-span-2">
+              <h4 className="text-xs tracking-[0.2em] uppercase text-[#A6C0D2] mb-6">Company</h4>
+              <ul className="space-y-4 text-sm">
+                <li><a href="#features" className="hover:text-[#A6C0D2] transition-colors">Why Us</a></li>
+                <li><a href="mailto:hello@momentumliving.ae" className="hover:text-[#A6C0D2] transition-colors">Get in Touch</a></li>
+                <li><Link to="/login" className="hover:text-[#A6C0D2] transition-colors">Sign In</Link></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 text-[#A6C0D2] text-xs">
+            <span>&copy; {new Date().getFullYear()} MomentumLiving. All rights reserved.</span>
+            <div className="flex items-center gap-6">
+              <span className="hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
+              <span className="hover:text-white cursor-pointer transition-colors">Terms of Service</span>
+              <span className="hover:text-white cursor-pointer transition-colors">Cookie Policy</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
