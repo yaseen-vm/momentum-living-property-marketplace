@@ -125,9 +125,18 @@ authRoutes.post("/otp/verify", async (c) => {
       .run();
     user = { id: newId, role };
   } else {
-    await c.env.DB.prepare("UPDATE users SET last_login_at = ?, mobile_verified_at = COALESCE(mobile_verified_at, ?), updated_at = ? WHERE id = ?")
-      .bind(now, now, now, user.id)
-      .run();
+    // Upgrade customer → vendor if they log in via vendor portal; never downgrade admin
+    const updatedRole = user.role !== "admin" && intent === "vendor" ? "vendor" : user.role;
+    if (updatedRole !== user.role) {
+      await c.env.DB.prepare("UPDATE users SET role = ?, last_login_at = ?, updated_at = ? WHERE id = ?")
+        .bind(updatedRole, now, now, user.id)
+        .run();
+    } else {
+      await c.env.DB.prepare("UPDATE users SET last_login_at = ?, mobile_verified_at = COALESCE(mobile_verified_at, ?), updated_at = ? WHERE id = ?")
+        .bind(now, now, now, user.id)
+        .run();
+    }
+    user = { id: user.id, role: updatedRole };
   }
 
   const ttl = user.role === "admin" ? JWT_TTL_ADMIN : JWT_TTL_CUSTOMER_VENDOR;

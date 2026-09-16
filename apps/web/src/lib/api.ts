@@ -31,10 +31,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ mobile }),
       }),
-    verifyOtp: (mobile: string, otp: string) =>
+    verifyOtp: (mobile: string, otp: string, intent?: "vendor" | "customer") =>
       request<OtpVerifyResponse>("/auth/otp/verify", {
         method: "POST",
-        body: JSON.stringify({ mobile, otp }),
+        body: JSON.stringify({ mobile, otp, intent }),
       }),
   },
   listings: {

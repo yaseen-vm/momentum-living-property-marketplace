@@ -24,9 +24,10 @@ interface OtpFormProps {
   onSuccess: (token: string, role: string, userId: string) => void;
   title?: string;
   subtitle?: string;
+  intent?: "vendor" | "customer";
 }
 
-export function OtpForm({ onSuccess, title = "Verify your number", subtitle }: OtpFormProps) {
+export function OtpForm({ onSuccess, title = "Verify your number", subtitle, intent }: OtpFormProps) {
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export function OtpForm({ onSuccess, title = "Verify your number", subtitle }: O
   async function handleVerifyOtp(data: OtpFormData) {
     setError(null);
     try {
-      const res = await api.auth.verifyOtp(mobile, data.otp);
+      const res = await api.auth.verifyOtp(mobile, data.otp, intent);
       onSuccess(res.token, res.user.role, res.user.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid OTP");

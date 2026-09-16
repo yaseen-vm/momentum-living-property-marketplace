@@ -54,6 +54,7 @@ export default function OtpLoginPage({ role }: OtpLoginPageProps) {
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           <OtpForm
             onSuccess={handleSuccess}
+            intent={role}
             title={isVendor ? "Owner Sign In" : "Browse Properties"}
             subtitle={
               isVendor
