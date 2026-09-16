@@ -51,7 +51,7 @@ export function OtpForm({ onSuccess, title = "Verify your number", subtitle }: O
     setError(null);
     try {
       const res = await api.auth.verifyOtp(mobile, data.otp);
-      onSuccess(res.token, res.role, res.userId);
+      onSuccess(res.token, res.user.role, res.user.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid OTP");
     }

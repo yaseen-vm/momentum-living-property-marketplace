@@ -21,8 +21,7 @@ async function request<T>(path: string, options?: RequestInit & { token?: string
 
 export interface OtpVerifyResponse {
   token: string;
-  role: string;
-  userId: string;
+  user: { id: string; role: string; mobile_verified: boolean };
 }
 
 export const api = {
