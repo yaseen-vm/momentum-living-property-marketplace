@@ -233,21 +233,21 @@ export default function Landing() {
           <Link to="/listings" className="hidden md:block text-sm font-semibold hover:underline">View All &rarr;</Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="category-card group cursor-pointer rounded-2xl bg-slate-50 p-8 transition-colors hover:bg-slate-100">
+          <Link to="/listings?type=residential" className="category-card group cursor-pointer rounded-2xl bg-slate-50 p-8 transition-colors hover:bg-slate-100">
              <h3 className="text-2xl font-serif mb-2 group-hover:text-slate-700 transition-colors">Residential</h3>
              <p className="text-sm text-slate-500 mb-6">Full homes, villas, and modern apartments ready to move in.</p>
              <span className="text-sm font-medium border-b border-black pb-0.5">Browse Homes</span>
-          </div>
-          <div className="category-card group cursor-pointer rounded-2xl bg-slate-50 p-8 transition-colors hover:bg-slate-100">
+          </Link>
+          <Link to="/listings?type=plot" className="category-card group cursor-pointer rounded-2xl bg-slate-50 p-8 transition-colors hover:bg-slate-100">
              <h3 className="text-2xl font-serif mb-2 group-hover:text-slate-700 transition-colors">Prime Plots</h3>
              <p className="text-sm text-slate-500 mb-6">Land plots verified and ready for your custom development.</p>
              <span className="text-sm font-medium border-b border-black pb-0.5">Browse Plots</span>
-          </div>
-          <div className="category-card group cursor-pointer rounded-2xl bg-slate-50 p-8 transition-colors hover:bg-slate-100">
+          </Link>
+          <Link to="/listings?type=room" className="category-card group cursor-pointer rounded-2xl bg-slate-50 p-8 transition-colors hover:bg-slate-100">
              <h3 className="text-2xl font-serif mb-2 group-hover:text-slate-700 transition-colors">Rooms</h3>
              <p className="text-sm text-slate-500 mb-6">Individual rooms and premium shared accommodation options.</p>
              <span className="text-sm font-medium border-b border-black pb-0.5">Browse Rooms</span>
-          </div>
+          </Link>
         </div>
       </section>
 

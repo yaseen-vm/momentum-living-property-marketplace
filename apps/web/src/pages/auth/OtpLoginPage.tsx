@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Building2 } from "lucide-react";
 import { OtpForm } from "../../components/OtpForm";
 import { useAuthStore } from "../../store/auth";
@@ -114,16 +114,16 @@ export default function OtpLoginPage({ role }: OtpLoginPageProps) {
               {isVendor ? (
                 <>
                   Looking for a property?{" "}
-                  <a href="/login" className="font-semibold text-primary-600 hover:underline">
+                  <Link to="/login" className="font-semibold text-primary-600 hover:underline">
                     Browse listings
-                  </a>
+                  </Link>
                 </>
               ) : (
                 <>
                   Want to list a property?{" "}
-                  <a href="/vendor/login" className="font-semibold text-primary-600 hover:underline">
+                  <Link to="/vendor/login" className="font-semibold text-primary-600 hover:underline">
                     Owner sign in
-                  </a>
+                  </Link>
                 </>
               )}
             </p>
