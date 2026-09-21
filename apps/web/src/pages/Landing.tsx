@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowRight } from "lucide-react";
@@ -19,6 +19,44 @@ function Diamond() {
   );
 }
 
+interface SkeletonImageProps {
+  src: string;
+  alt: string;
+  className?: string;
+  loading?: "lazy" | "eager";
+  style?: React.CSSProperties;
+  skeletonClassName?: string;
+}
+
+function SkeletonImage({ src, alt, className = "", loading = "lazy", style = {}, skeletonClassName = "" }: SkeletonImageProps) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isError, setIsError] = useState(false);
+
+  return (
+    <div className="relative w-full h-full">
+      {!isLoaded && !isError && (
+        <div
+          className={`absolute inset-0 animate-pulse bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 bg-[length:200%_100%] ${skeletonClassName}`}
+          style={{
+            animation: "shimmer 2s infinite linear",
+            backgroundImage: "linear-gradient(90deg, #e2e8f0 0%, #cbd5e1 50%, #e2e8f0 100%)",
+          }}
+        />
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`${className} transition-opacity duration-500 ${isLoaded ? "opacity-100" : "opacity-0"}`}
+        loading={loading}
+        decoding="async"
+        style={style}
+        onLoad={() => setIsLoaded(true)}
+        onError={() => setIsError(true)}
+      />
+    </div>
+  );
+}
+
 // Strict no-listing rule (spec §27): this page must never link to inventory,
 // show prices/counts or use "browse" CTAs. The only way in is AVAILABILITY.
 export default function Landing() {
@@ -32,6 +70,45 @@ export default function Landing() {
       "Momentum Living specialises in labour accommodation, labour camps and professional real-estate solutions in the UAE.",
   });
 
+  // Preload critical images in priority order
+  useEffect(() => {
+    // High priority - above fold and first scroll
+    const criticalImages = [
+      "/images/professional_accommodation_1789645786277.jpg",
+      "/images/construction_buildings_sunset_1789645890123.jpg",
+    ];
+
+    // Medium priority - mid page
+    const mediumImages = [
+      "/images/office_buildings_modern_1789645950789.jpg",
+      "/images/workforce_camp_exterior_1789646010456.jpg",
+      "/images/dining_area_1789646040123.png",
+      "/images/dubai_commercial_land_1789645806536.jpg",
+    ];
+
+    // Load critical first
+    const criticalPromises = criticalImages.map((src) => {
+      return new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = src;
+      });
+    });
+
+    // Then load medium priority
+    Promise.all(criticalPromises).then(() => {
+      mediumImages.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
+
+      if (window.ScrollTrigger) {
+        setTimeout(() => window.ScrollTrigger.refresh(), 100);
+      }
+    });
+  }, []);
+
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.from(".hero-reveal", { y: 24, opacity: 0, duration: 0.8, stagger: 0.12, ease: "power3.out" });
@@ -40,16 +117,17 @@ export default function Landing() {
       gsap.utils.toArray<HTMLElement>(".scroll-img").forEach((img) => {
         gsap.fromTo(
           img,
-          { y: 40, scale: 1.06 },
+          { y: 0, force3D: true },
           {
-            y: -40,
-            scale: 1,
+            y: -30,
             ease: "none",
+            force3D: true,
             scrollTrigger: {
               trigger: img.closest("section"),
               start: "top bottom",
               end: "bottom top",
               scrub: true,
+              invalidateOnRefresh: true,
             },
           },
         );
@@ -65,6 +143,7 @@ export default function Landing() {
             trigger: el,
             start: "top 85%",
             toggleActions: "play none none none",
+            once: true,
           },
         });
       });
@@ -81,6 +160,7 @@ export default function Landing() {
             trigger: group,
             start: "top 80%",
             toggleActions: "play none none none",
+            once: true,
           },
         });
       });
@@ -88,32 +168,61 @@ export default function Landing() {
       gsap.utils.toArray<HTMLElement>(".parallax-bg").forEach((img) => {
         gsap.fromTo(
           img,
-          { yPercent: -10 },
+          { yPercent: -5, force3D: true },
           {
-            yPercent: 10,
+            yPercent: 5,
             ease: "none",
+            force3D: true,
             scrollTrigger: {
               trigger: img.closest("section"),
               start: "top bottom",
               end: "bottom top",
               scrub: true,
+              invalidateOnRefresh: true,
             },
           },
         );
       });
+
+      // Initial refresh
+      ScrollTrigger.refresh();
+
+      // Final refresh after everything settles
+      const finalRefresh = setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 500);
+
+      return () => clearTimeout(finalRefresh);
     }, pageRef);
-    return () => ctx.revert();
+
+    // Window load handler for final adjustments
+    const handleLoad = () => {
+      setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 100);
+    };
+
+    window.addEventListener("load", handleLoad);
+
+    return () => {
+      ctx.revert();
+      window.removeEventListener("load", handleLoad);
+    };
   }, []);
 
   return (
     <div ref={pageRef}>
       {/* ── Hero ── */}
       <section ref={heroRef} className="relative isolate overflow-hidden bg-navy-900">
-        <img
-          src="/images/professional_accommodation_1789645786277.jpg"
-          alt="Professionally managed workforce accommodation"
-          className="hero-img absolute inset-0 -z-10 h-full w-full object-cover"
-        />
+        <div className="absolute inset-0 -z-10 h-full w-full">
+          <SkeletonImage
+            src="/images/professional_accommodation_1789645786277.jpg"
+            alt="Professionally managed workforce accommodation"
+            className="hero-img h-full w-full object-cover"
+            loading="eager"
+            skeletonClassName="bg-navy-800"
+          />
+        </div>
         <div className="absolute inset-0 -z-10 bg-navy-950/75 md:bg-transparent md:bg-gradient-to-r md:from-navy-950/90 md:via-navy-950/70 md:to-navy-950/20" />
 
         <div className="container-site flex min-h-[560px] flex-col justify-center py-20 md:min-h-[640px] md:py-28">
@@ -149,7 +258,7 @@ export default function Landing() {
       </section>
 
       {/* ── The Company — content left, image right ── */}
-      <section className="overflow-hidden">
+      <section className="overflow-hidden" style={{ transform: "translate3d(0,0,0)" }}>
         <div className="grid md:grid-cols-2">
           <div className="scroll-reveal flex flex-col justify-center px-6 py-16 sm:px-10 md:py-24 lg:py-32 lg:pl-[max(2rem,calc((100vw-1280px)/2+2rem))] lg:pr-16">
             <div className="flex items-center gap-3">
@@ -183,24 +292,28 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="relative min-h-[400px] overflow-hidden md:min-h-[600px]">
-            <img
-              src="/images/modern_warehouse_1789645765775.jpg"
+          <div className="relative min-h-[400px] overflow-hidden md:min-h-[600px]" style={{ transform: "translate3d(0,0,0)", contain: "layout style paint" }}>
+            <SkeletonImage
+              src="/images/construction_buildings_sunset_1789645890123.jpg"
               alt="Modern workforce accommodation facility"
               className="scroll-img absolute inset-0 h-[120%] w-full object-cover"
+              loading="eager"
+              style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
             />
           </div>
         </div>
       </section>
 
       {/* ── Accommodation Excellence — image left, content right ── */}
-      <section className="overflow-hidden bg-navy-50/40">
+      <section className="overflow-hidden bg-navy-50/40" style={{ transform: "translate3d(0,0,0)" }}>
         <div className="grid md:grid-cols-2">
-          <div className="relative order-2 min-h-[400px] overflow-hidden md:order-1 md:min-h-[600px]">
-            <img
-              src="/images/interior_living_1789544175691.jpg"
+          <div className="relative order-2 min-h-[400px] overflow-hidden md:order-1 md:min-h-[600px]" style={{ transform: "translate3d(0,0,0)", contain: "layout style paint" }}>
+            <SkeletonImage
+              src="/images/chimney_building_sideview_1789645920456.jpg"
               alt="Premium interior living quarters"
               className="scroll-img absolute inset-0 h-[120%] w-full object-cover"
+              loading="lazy"
+              style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
             />
           </div>
 
@@ -241,12 +354,15 @@ export default function Landing() {
       </section>
 
       {/* ── Commercial Spaces — full-bleed parallax ── */}
-      <section className="relative isolate overflow-hidden">
-        <div className="absolute inset-0 -z-10 overflow-hidden">
-          <img
-            src="/images/dubai_commercial_hero_1789645746196.jpg"
+      <section className="relative isolate overflow-hidden" style={{ transform: "translate3d(0,0,0)" }}>
+        <div className="absolute inset-0 -z-10 overflow-hidden" style={{ transform: "translate3d(0,0,0)", contain: "layout style paint" }}>
+          <SkeletonImage
+            src="/images/office_buildings_modern_1789645950789.jpg"
             alt="Commercial real estate in Dubai"
             className="parallax-bg h-[120%] w-full object-cover"
+            loading="eager"
+            style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+            skeletonClassName="bg-navy-800"
           />
         </div>
         <div className="absolute inset-0 -z-10 bg-navy-950/65" />
@@ -342,11 +458,13 @@ export default function Landing() {
 
           <div className="scroll-reveal-stagger mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="stagger-child group relative overflow-hidden rounded-xl">
-              <div className="aspect-[4/3] overflow-hidden">
-                <img
-                  src="/images/exterior_patio_1789544274451.jpg"
+              <div className="aspect-[4/3] overflow-hidden" style={{ transform: "translate3d(0,0,0)", contain: "layout style paint" }}>
+                <SkeletonImage
+                  src="/images/workforce_camp_exterior_1789646010456.jpg"
                   alt="Outdoor recreation area"
                   className="scroll-img h-[120%] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="eager"
+                  style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
                 />
               </div>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-950/80 to-transparent p-6 pt-16">
@@ -356,11 +474,13 @@ export default function Landing() {
             </div>
 
             <div className="stagger-child group relative overflow-hidden rounded-xl">
-              <div className="aspect-[4/3] overflow-hidden">
-                <img
-                  src="/images/kitchen_interior_1789544288691.jpg"
+              <div className="aspect-[4/3] overflow-hidden" style={{ transform: "translate3d(0,0,0)", contain: "layout style paint" }}>
+                <SkeletonImage
+                  src="/images/dining_area_1789646040123.png"
                   alt="Modern kitchen and dining facility"
                   className="scroll-img h-[120%] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="eager"
+                  style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
                 />
               </div>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-950/80 to-transparent p-6 pt-16">
@@ -370,11 +490,13 @@ export default function Landing() {
             </div>
 
             <div className="stagger-child group relative overflow-hidden rounded-xl sm:col-span-2 lg:col-span-1">
-              <div className="aspect-[4/3] overflow-hidden">
-                <img
+              <div className="aspect-[4/3] overflow-hidden" style={{ transform: "translate3d(0,0,0)", contain: "layout style paint" }}>
+                <SkeletonImage
                   src="/images/dubai_commercial_land_1789645806536.jpg"
                   alt="Commercial land and industrial yard"
                   className="scroll-img h-[120%] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="eager"
+                  style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
                 />
               </div>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-950/80 to-transparent p-6 pt-16">

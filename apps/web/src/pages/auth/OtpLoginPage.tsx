@@ -11,7 +11,7 @@ interface OtpLoginPageProps {
 
 const PANELS = {
   customer: {
-    image: "/images/dubai_commercial_hero_1789645746196.jpg",
+    image: "/images/office_buildings_modern_1789645950789.jpg",
     eyebrow: "Find Commercial Property",
     heading: "Submit your requirement, we find the right fit.",
     bullets: [
@@ -26,7 +26,7 @@ const PANELS = {
     switchTo: "/vendor/login",
   },
   vendor: {
-    image: "/images/modern_warehouse_1789645765775.jpg",
+    image: "/images/construction_buildings_sunset_1789645890123.jpg",
     eyebrow: "List Your Property",
     heading: "Register your availability and reach qualified tenants.",
     bullets: [
