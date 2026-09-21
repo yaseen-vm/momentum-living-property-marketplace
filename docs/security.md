@@ -135,16 +135,16 @@ Allow-list of the production web origins (`labourcamps.com`, Pages domain); any 
 | `RESEND_API_KEY`, `ADMIN_EMAIL` | Workers Secret |
 | `AWS_*` (v2) | Workers Secret |
 
-`ENVIRONMENT` is a plain `wrangler.toml` var (`development` locally / `production`). Local secrets in `apps/api/.dev.vars` (gitignored).
+`ENVIRONMENT` and `SITE_URL` are plain `wrangler.toml` vars (`SITE_URL` = the Pages deployment origin, used for admin lead links in notification emails). Local secrets in `apps/api/.dev.vars` (gitignored).
 
 ---
 
 ## Known gaps in current code (must fix before launch)
 
 1. `GET /listings` and `GET /listings/:id` are **unauthenticated** — full inventory is public. Remove (legacy).
-2. `GET /upload/files/:key` is **unauthenticated for all keys**, including vendor documents. Add signed-URL check.
-3. OTP fallback (`123456`) activates whenever `MSG91_AUTH_KEY` is a placeholder, regardless of environment. Gate on `ENVIRONMENT`.
-4. No Zod validation on request bodies (manual checks only).
+2. `GET /upload/files/:key` is **unauthenticated for non-public keys**, including vendor documents. Add signed-URL check for non-`public-media/` prefixes.
+3. ~~OTP fallback (`123456`) activates whenever `MSG91_AUTH_KEY` is a placeholder, regardless of environment.~~ **Fixed** (Stage 3): gated on `ENVIRONMENT=development`.
+4. ~~No Zod validation on request bodies.~~ **Fixed** (Stages 3–5): Zod schemas on all `/availability/*` and `/admin/*` handlers; older legacy handlers still use manual checks.
 5. Security headers middleware not installed.
 6. `pnpm audit` not in CI; CI runs typecheck only (no lint).
 

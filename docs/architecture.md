@@ -46,14 +46,14 @@ Static SPA built with React + TypeScript + Vite. Three areas in one codebase:
 
 1. **Corporate site** — Home, About Us, Managing Director, MD's Note, Our Agents, Why Choose Us, Contact, Privacy, Terms. Content is fetched from `GET /content` and `GET /agents` (admin-editable). Routes are **prerendered at build time** to static HTML with per-page `<title>`/meta for SEO; content hydrates from the API. **No component on these routes may render inventory.**
 2. **Availability journey** — a single wizard route (`/availability`) with local step state: user type → details → OTP → requirements; then results and opportunity detail routes that require a JWT and call server-gated endpoints. `noindex`.
-3. **Admin dashboard** — `/admin/*`, admin JWT.
+3. **Admin dashboard** — `/admin/*`, admin JWT. Modules: Leads (list/filter/detail/assign/notes/rematch), Properties (CRUD/archive/availability/photos), Agents (CRUD/photo), Content (recursive per-key editor), Reports (stats + breakdowns), Export (CSV download).
 
 Deployed from `main` via GitHub Actions.
 
 ### API Worker (Hono)
 Single Hono Worker. Thin handlers: Zod-validate input, authorise via JWT, read/write D1/KV/R2, respond. Async side-effects (SMS, email) run in `waitUntil`. All request-path work within the 10 ms CPU budget.
 
-**Bindings:** `DB` (D1), `KV`, `R2`, plus secrets `JWT_SECRET`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `RESEND_API_KEY`, `ADMIN_EMAIL`; var `ENVIRONMENT`. v2 adds `AI`, `VECTORIZE_LISTINGS`, AWS secrets.
+**Bindings:** `DB` (D1), `KV`, `R2`, plus secrets `JWT_SECRET`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `RESEND_API_KEY`, `ADMIN_EMAIL`; vars `ENVIRONMENT`, `SITE_URL`. v2 adds `AI`, `VECTORIZE_LISTINGS`, AWS secrets.
 
 ### Matching Engine (inline, synchronous)
 `apps/api/src/lib/matching.ts`. Runs inside `PUT /availability/enquiries/:id/requirements` (and, from Stage 5, `POST /admin/leads/:id/rematch`).

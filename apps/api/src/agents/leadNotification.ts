@@ -26,6 +26,13 @@ function detailsTable(rows: Array<[string, string]>): string {
     .join("")}</table>`;
 }
 
+/** "Open lead" link for admin emails; omitted when SITE_URL is not configured. */
+function leadLink(env: Bindings, enquiryId: string): string {
+  if (!env.SITE_URL) return "";
+  const url = `${env.SITE_URL.replace(/\/$/, "")}/admin/leads/${encodeURIComponent(enquiryId)}`;
+  return `\n<p><a href="${escapeHtml(url)}">Open lead in admin</a></p>`;
+}
+
 function formatDate(ms: unknown): string | null {
   return typeof ms === "number" ? new Date(ms).toISOString().slice(0, 10) : null;
 }
@@ -112,7 +119,7 @@ export async function notifyNewLead(enquiryId: string, env: Bindings): Promise<R
   ];
 
   const html = `<h2>New ${escapeHtml(typeLabel)} enquiry</h2>
-${detailsTable(rows)}`;
+${detailsTable(rows)}${leadLink(env, lead.id)}`;
   await sendEmail(env.ADMIN_EMAIL, `New ${typeLabel} enquiry — ${lead.reference_no} — ${who}`, html, env);
 
   return { reference_no: lead.reference_no, match_count: lead.match_count };
@@ -178,7 +185,7 @@ export async function notifyLeadRequest(requestId: string, env: Bindings): Promi
   const preferred = formatDate(req.preferred_date);
   if (preferred) rows.push(["Preferred date", preferred]);
 
-  const html = `<h2>${escapeHtml(kindLabel)} request</h2>\n${detailsTable(rows)}`;
+  const html = `<h2>${escapeHtml(kindLabel)} request</h2>\n${detailsTable(rows)}${leadLink(env, req.id)}`;
   await sendEmail(env.ADMIN_EMAIL, `${kindLabel} request — ${listingRef} — lead ${req.reference_no}`, html, env);
 
   return { reference_no: req.reference_no, kind: req.kind, listing_id: req.listing_id };

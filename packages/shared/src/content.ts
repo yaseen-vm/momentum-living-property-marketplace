@@ -26,15 +26,17 @@ export interface AboutContent {
 }
 
 /** Icon names map to Lucide icons in the web app (`lib/featureIcons.ts`). */
-export type FeatureIcon =
-  | "compass"
-  | "network"
-  | "users"
-  | "zap"
-  | "line-chart"
-  | "handshake"
-  | "shield"
-  | "headset";
+export const FEATURE_ICONS = [
+  "compass",
+  "network",
+  "users",
+  "zap",
+  "line-chart",
+  "handshake",
+  "shield",
+  "headset",
+] as const;
+export type FeatureIcon = (typeof FEATURE_ICONS)[number];
 
 export interface WhyChooseFeature {
   title: string;

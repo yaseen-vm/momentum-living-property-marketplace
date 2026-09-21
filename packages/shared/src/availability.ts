@@ -42,6 +42,17 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
+export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
+  new: "New",
+  contacted: "Contacted",
+  qualified: "Qualified",
+  matching: "Matching",
+  viewing_requested: "Viewing Requested",
+  negotiation: "Negotiation",
+  closed: "Closed",
+  not_proceeding: "Not Proceeding",
+};
+
 export const OPPORTUNITY_KINDS = [
   "accommodation_lease",
   "accommodation_sale",
@@ -50,6 +61,14 @@ export const OPPORTUNITY_KINDS = [
   "investor_demand",
 ] as const;
 export type OpportunityKind = (typeof OPPORTUNITY_KINDS)[number];
+
+export const OPPORTUNITY_KIND_LABELS: Record<OpportunityKind, string> = {
+  accommodation_lease: "Accommodation for lease",
+  accommodation_sale: "Accommodation for sale",
+  tenant_demand: "Tenant demand",
+  management: "Management opportunity",
+  investor_demand: "Investor demand",
+};
 
 /** What each user type is shown in Step 4 (data-model.md, "Matching kinds by user type"). */
 export const OPPORTUNITY_KINDS_BY_USER_TYPE: Record<UserType, readonly OpportunityKind[]> = {
@@ -124,6 +143,10 @@ export const LOCATIONS: readonly LocationArea[] = [
 
 const LOCATION_SLUGS = new Set(LOCATIONS.map((l) => l.slug));
 const EMIRATE_SLUGS = EMIRATES.map((e) => e.slug) as [EmirateSlug, ...EmirateSlug[]];
+
+export function isLocationSlug(slug: string): boolean {
+  return LOCATION_SLUGS.has(slug);
+}
 
 export function locationLabel(slug: string): string {
   const area = LOCATIONS.find((l) => l.slug === slug);

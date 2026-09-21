@@ -8,6 +8,8 @@ export interface Bindings {
   RESEND_API_KEY: string;
   ADMIN_EMAIL: string;
   ENVIRONMENT: string;
+  /** Web app origin for links in admin emails, e.g. `https://labourcamps.com`. */
+  SITE_URL?: string;
 }
 
 export interface Variables {

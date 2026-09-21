@@ -19,9 +19,12 @@ import VendorPendingPage from "./pages/vendor/VendorPendingPage";
 import VendorDashboardPage from "./pages/vendor/VendorDashboardPage";
 import VendorListingFormPage from "./pages/vendor/VendorListingFormPage";
 import AdminLayout from "./pages/admin/AdminLayout";
-import AdminVendorsPage from "./pages/admin/AdminVendorsPage";
-import AdminListingsPage from "./pages/admin/AdminListingsPage";
-import AdminBookingsPage from "./pages/admin/AdminBookingsPage";
+import AdminLeadsPage from "./pages/admin/AdminLeadsPage";
+import AdminLeadDetailPage from "./pages/admin/AdminLeadDetailPage";
+import AdminPropertiesPage from "./pages/admin/AdminPropertiesPage";
+import AdminPropertyFormPage from "./pages/admin/AdminPropertyFormPage";
+import AdminAgentsPage from "./pages/admin/AdminAgentsPage";
+import AdminContentPage from "./pages/admin/AdminContentPage";
 import AdminExportPage from "./pages/admin/AdminExportPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
 
@@ -107,12 +110,18 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/admin/vendors" replace />} />
-          <Route path="vendors" element={<AdminVendorsPage />} />
-          <Route path="listings" element={<AdminListingsPage />} />
-          <Route path="bookings" element={<AdminBookingsPage />} />
-          <Route path="export" element={<AdminExportPage />} />
+          <Route index element={<Navigate to="/admin/leads" replace />} />
+          <Route path="leads" element={<AdminLeadsPage />} />
+          <Route path="leads/:id" element={<AdminLeadDetailPage />} />
+          <Route path="properties" element={<AdminPropertiesPage />} />
+          <Route path="properties/new" element={<AdminPropertyFormPage />} />
+          <Route path="properties/:id" element={<AdminPropertyFormPage />} />
+          <Route path="agents" element={<AdminAgentsPage />} />
+          <Route path="content" element={<AdminContentPage />} />
           <Route path="reports" element={<AdminReportsPage />} />
+          <Route path="export" element={<AdminExportPage />} />
+          {/* Retired vendor, listing-approval and booking queues */}
+          <Route path="*" element={<Navigate to="/admin/leads" replace />} />
         </Route>
 
         {/* Fallback */}

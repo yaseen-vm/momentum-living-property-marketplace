@@ -160,16 +160,16 @@ Indexes: `(enquiry_id, created_at)`, `(enquiry_id, listing_id, kind)` UNIQUE (no
 
 ---
 
-### `lead_notes` **(new)** — replaces `booking_notes`
-Immutable admin note timeline per lead.
+### `lead_notes` **(migration 0007)** — replaces `booking_notes`
+Immutable admin note timeline per lead. Written by `PATCH /admin/leads/:id` (every status change, with or without a note), `POST /admin/leads/:id/notes` and `POST /admin/leads/:id/rematch` (a "Matching re-run: N opportunities" entry).
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `enquiry_id` | TEXT NOT NULL FK → enquiries | |
+| `enquiry_id` | TEXT NOT NULL FK → enquiries | `ON DELETE CASCADE` |
 | `author_id` | TEXT NOT NULL FK → users | Admin |
-| `body` | TEXT NOT NULL | |
-| `status_change` | TEXT | e.g. `new→contacted` when the note accompanied a status change |
+| `body` | TEXT NOT NULL | Empty when the entry only records a status change |
+| `status_change` | TEXT | e.g. `new→contacted` when the entry records a status change |
 | `created_at` | INTEGER NOT NULL | |
 
 Index: `(enquiry_id, created_at)`.
@@ -225,24 +225,24 @@ Seeded by migration 0004 with `[PLACEHOLDER]` values (never invented data). The 
 ---
 
 ### `listings` — properties & opportunities
-**Rework:** listings become **admin-managed** records representing either a property or an opportunity. The `vendor_id NOT NULL` constraint must be relaxed (table rebuild migration — SQLite cannot drop NOT NULL in place). Migrations 0005 and 0006 added the columns marked **(0005)** / **(0006)**; the others marked **(new)** come with the admin properties rebuild (Stage 5). `location_slug` should come from the shared `LOCATIONS` catalogue so location filters can match it.
+Admin-managed records representing either a property or an opportunity. Migration **0007** rebuilt the table (SQLite cannot drop NOT NULL in place): `vendor_id` and `price` are nullable and the columns marked **(0007)** were added. The rebuild backs the rows up, drops and recreates `listings` under its own name, then re-inserts them, so the deferred foreign keys from `lead_matches`, `lead_requests`, `listing_photos`, `bookings` and `shortlists` resolve at commit (a drop + rename leaves them unresolved). Migrations 0005 and 0006 added the columns marked **(0005)** / **(0006)**. `location_slug` must come from the shared `LOCATIONS` catalogue (the admin API rejects other values) so location filters can match it.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `reference_no` | TEXT UNIQUE **(0005)** | Internal/public reference, e.g. `ML-LC-0042` |
+| `reference_no` | TEXT UNIQUE **(0005)** | Internal/public reference `ML-{LC\|WH\|LD}-{seq:04}` by property type, e.g. `ML-LC-0042`; generated in the INSERT when the admin leaves it empty (one global sequence: max existing + 1) |
 | `opportunity_kind` | TEXT NOT NULL DEFAULT `accommodation_lease` **(0005)** | `accommodation_lease` \| `accommodation_sale` \| `tenant_demand` \| `management` \| `investor_demand` |
 | `vendor_id` | TEXT FK → vendor_profiles | *(legacy)* — **nullable** after rebuild; NULL for admin-created rows |
-| `created_by` | TEXT FK → users **(new)** | Admin who created it |
+| `created_by` | TEXT FK → users **(0007)** | Admin who created it |
 | `assigned_agent_id` | TEXT FK → agents **(0005)** | Shown on card/detail as contact |
 | `source_name` / `source_listing_id` | TEXT | Ingestion dedup (v2) |
 | `type` | TEXT NOT NULL | Property type: `labour_camp` \| `warehouse` \| `land` (shared type literal must be updated from `property\|plot\|room`) |
-| `status` | TEXT NOT NULL DEFAULT `draft` | `draft` \| `approved` (= published) \| `archived` **(new)**; legacy vendor values `pending` \| `rejected` \| `rented_sold` \| `withdrawn` |
+| `status` | TEXT NOT NULL DEFAULT `draft` | `draft` \| `approved` (= published) \| `archived`; legacy vendor values `pending` \| `rejected` \| `rented_sold` \| `withdrawn` (shown in admin, never matched) |
 | `is_available` | INTEGER NOT NULL DEFAULT 1 **(0005)** | Admin toggle; unavailable rows never match |
 | `title` | TEXT NOT NULL | Public name/reference |
 | `summary` | TEXT **(0005)** | Short card description |
 | `description` | TEXT | Detail page |
-| `price` | REAL | Rent/sale price (nullable for demand/management kinds) |
+| `price` | REAL | Rent/sale price; nullable since 0007 (demand/management kinds, price on request) |
 | `price_period` | TEXT **(0005)** | `year` \| `month` \| `total` |
 | `currency` | TEXT NOT NULL DEFAULT `AED` | |
 | `show_price` | INTEGER NOT NULL DEFAULT 1 **(0005)** | Hide price → "on request" |
@@ -258,16 +258,16 @@ Seeded by migration 0004 with `[PLACEHOLDER]` values (never invented data). The 
 | `security_deposit_pct`, `commission_pct`, `ejari_fee`, `admin_fee` | REAL | Commercial terms |
 | `terms` | TEXT **(0006)** | Free-text commercial terms for detail page |
 | `amenities` | TEXT | JSON array — "facilities" |
-| `owner_name`, `owner_contact` | TEXT **(new)** | **Confidential** — admin API only, never returned to enquirers |
-| `internal_notes` | TEXT **(new)** | Admin only |
+| `owner_name`, `owner_contact` | TEXT **(0007)** | **Confidential** — admin API only, never returned to enquirers |
+| `internal_notes` | TEXT **(0007)** | Admin only |
 | `admin_note`, `reviewed_at` | | Legacy approval fields |
 | `published_at` | INTEGER | Set when status → approved |
-| `archived_at` | INTEGER **(new)** | |
+| `archived_at` | INTEGER **(0007)** | Set when status → `archived`, cleared when un-archived |
 | `created_at` / `updated_at` | INTEGER NOT NULL | |
 
 Indexes:
 - `(status, is_available, opportunity_kind, location_slug, total_capacity)` **(0005)** `idx_listings_matching` — matching engine candidate query
-- `(opportunity_kind, status, updated_at)` **(new)** — admin list
+- `(opportunity_kind, status, updated_at)` **(0007)** `idx_listings_admin` — admin list filtered by kind
 - `(reference_no)` UNIQUE WHERE reference_no IS NOT NULL **(0005)**
 - `(source_name, source_listing_id)` UNIQUE WHERE source_listing_id IS NOT NULL
 - `(status, type, location_slug, price)` *(legacy browse index — drop with browse page)*
@@ -292,8 +292,8 @@ Indexes:
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
 | `listing_id` | TEXT NOT NULL FK → listings | |
-| `r2_key` | TEXT NOT NULL | `listing-photos/{listing_id}/{uuid}.{ext}` |
-| `alt_text` | TEXT **(new)** | SEO/accessibility |
+| `r2_key` | TEXT NOT NULL | `listing-photos/{uploader_id}/{uuid}.{ext}` (uploaded before the listing exists) |
+| `alt_text` | TEXT **(0007)** | SEO/accessibility |
 | `display_order` | INTEGER NOT NULL DEFAULT 0 | |
 | `created_at` | INTEGER NOT NULL | |
 
@@ -349,8 +349,8 @@ Kept in the database until the client confirms the vendor portal is dropped; not
 
 | Key pattern | Content | Who can read |
 |------------|---------|--------------|
-| `public-media/{area}/{uuid}.{ext}` **(new)** | Agent photos, MD portrait, corporate imagery | Public (served by Worker with long cache) |
-| `listing-photos/{listing_id}/{uuid}.{ext}` | Property/opportunity photos | Admin, or enquirer via signed URL when listing is in their matches |
+| `public-media/{area}/{uuid}.{ext}` (`area` = `agents` \| `md` \| `site`) | Agent photos, MD portrait, corporate imagery | Public (served by Worker with long cache) |
+| `listing-photos/{uploader_id}/{uuid}.{ext}` | Property/opportunity photos | Admin, or enquirer via signed URL when listing is in their matches |
 | `enquiry-docs/{enquiry_id}/{uuid}.{ext}` **(new)** | Landlord supporting documents | Admin only (signed URL) |
 | `vendor-docs/{vendor_id}/{uuid}.{ext}` *(legacy)* | Vendor documents | Admin only |
 

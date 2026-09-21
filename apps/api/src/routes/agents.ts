@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AgentsResponse } from "@momentum/shared";
 import type { Bindings, Variables } from "../types";
+import { publicMediaUrl } from "../lib/files";
 
 export const agentRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -27,13 +28,11 @@ agentRoutes.get("/", async (c) => {
   ).all<AgentRow>();
 
   // Agent photos live under public-media/, which the upload route serves without a signature.
-  const origin = new URL(c.req.url).origin;
-
   const body: AgentsResponse = {
     agents: rows.results.map(({ photo_r2_key, languages, ...agent }) => ({
       ...agent,
       languages: JSON.parse(languages) as string[],
-      photo_url: photo_r2_key?.startsWith("public-media/") ? `${origin}/upload/files/${photo_r2_key}` : null,
+      photo_url: publicMediaUrl(c.req.url, photo_r2_key),
     })),
   };
 

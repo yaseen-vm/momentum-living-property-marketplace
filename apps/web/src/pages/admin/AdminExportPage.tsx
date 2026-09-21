@@ -1,198 +1,161 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
-import { useAuthStore } from "../../store/auth";
+import { LEAD_STATUSES, LEAD_STATUS_LABELS, USER_TYPES, USER_TYPE_LABELS } from "@momentum/shared";
+import type { ExportType } from "@momentum/shared";
+import { api } from "../../lib/api";
 import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
+import { AdminCard, AdminField, AdminPage, ErrorBox, adminInputClass, fromDateInput, useAdminToken } from "../../components/admin/AdminUi";
 
-type ExportType = "customers" | "vendors";
-type DateField = "signup_date" | "last_login_at";
-type DateRange = "24h" | "2d" | "7d" | "30d" | "custom";
+type Period = "24h" | "2d" | "7d" | "30d" | "custom";
+const PERIODS: Array<{ value: Period; label: string }> = [
+  { value: "24h", label: "Last 24 hours" },
+  { value: "2d", label: "Last 2 days" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "custom", label: "Custom range (up to 366 days)" },
+];
 
-function getDateRange(range: DateRange, customFrom: string, customTo: string): { from: number; to: number } {
-  const now = Date.now();
-  const to = now;
-  if (range === "24h") return { from: now - 86_400_000, to };
-  if (range === "2d") return { from: now - 172_800_000, to };
-  if (range === "7d") return { from: now - 604_800_000, to };
-  if (range === "30d") return { from: now - 2_592_000_000, to };
-  return {
-    from: new Date(customFrom).getTime(),
-    to: new Date(customTo).getTime(),
-  };
-}
-
-const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:8787";
+const COLUMNS: Record<ExportType, string> = {
+  leads: "Reference, Created, User Type, Name, Company, Position, Email, Mobile, Status, Assigned Agent, Matches, Requests, Requirements",
+  enquirers: "Name, Mobile, Mobile Verified, Signup Date, Last Login",
+};
 
 export default function AdminExportPage() {
-  const { token } = useAuthStore();
-  const [exportType, setExportType] = useState<ExportType>("customers");
-  const [dateField, setDateField] = useState<DateField>("signup_date");
-  const [dateRange, setDateRange] = useState<DateRange>("7d");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
-  const [vendorStatus, setVendorStatus] = useState("");
+  const token = useAdminToken();
+  const [type, setType] = useState<ExportType>("leads");
+  const [period, setPeriod] = useState<Period>("30d");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [userType, setUserType] = useState("");
+  const [leadStatus, setLeadStatus] = useState("");
+  const [dateField, setDateField] = useState<"created" | "last_login">("created");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
-  async function handleExport() {
-    if (!token) return;
-    setLoading(true);
+  async function download() {
     setError(null);
+    const params: Record<string, string> = { type, period };
+    if (period === "custom") {
+      const f = fromDateInput(from);
+      const t = fromDateInput(to, true);
+      if (f === undefined || t === undefined) {
+        setError("Choose both dates.");
+        return;
+      }
+      params["from"] = String(f);
+      params["to"] = String(t);
+    }
+    if (type === "leads") {
+      if (userType) params["user_type"] = userType;
+      if (leadStatus) params["lead_status"] = leadStatus;
+    } else {
+      params["date_field"] = dateField;
+    }
+
+    setLoading(true);
     try {
-      const { from, to } = getDateRange(dateRange, customFrom, customTo);
-      const params = new URLSearchParams({
-        type: exportType,
-        date_field: dateField,
-        period: "custom",
-        from: String(from),
-        to: String(to),
-        ...(exportType === "vendors" && vendorStatus ? { owner_status: vendorStatus } : {}),
-      });
-      const res = await fetch(`${API_BASE}/admin/export?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Export failed");
-      const blob = await res.blob();
+      const blob = await api.admin.exportCsv(params, token);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${exportType}-export-${Date.now()}.csv`;
+      a.download = `${type}-export-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Export failed");
+      setError(e);
     } finally {
       setLoading(false);
     }
   }
 
+  const choice = <T extends string>(value: T, current: T, set: (v: T) => void, label: string) => (
+    <button
+      key={value}
+      type="button"
+      aria-pressed={value === current}
+      onClick={() => set(value)}
+      className={`rounded-lg border-2 px-4 py-2 text-sm font-medium transition-colors ${
+        value === current ? "border-navy-600 bg-navy-50 text-navy-800" : "border-slate-200 text-slate-600 hover:border-slate-300"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <div className="p-6">
-      <h1 className="mb-6 text-xl font-bold text-slate-900">Data Export</h1>
-
-      <div className="max-w-lg rounded-xl bg-white p-6 shadow-sm space-y-5">
-        {/* Export type */}
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">Export Type</p>
-          <div className="flex gap-3">
-            {(["customers", "vendors"] as ExportType[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setExportType(t)}
-                className={`rounded-lg border-2 px-4 py-2 text-sm font-medium capitalize transition-colors ${
-                  exportType === t
-                    ? "border-primary-500 bg-primary-50 text-primary-700"
-                    : "border-slate-200 text-slate-600 hover:border-slate-300"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+    <AdminPage title="Export" description="CSV downloads for follow-up and reporting. Limited to 5 exports per hour.">
+      <AdminCard className="max-w-xl">
+        <div className="space-y-5">
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700">Export</p>
+            <div className="flex gap-3">
+              {choice<ExportType>("leads", type, setType, "Leads")}
+              {choice<ExportType>("enquirers", type, setType, "Verified enquirers")}
+            </div>
           </div>
-        </div>
 
-        {/* Date field */}
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">Filter By</p>
-          <div className="flex gap-3">
-            {[
-              { value: "signup_date", label: "Signup Date" },
-              { value: "last_login_at", label: "Last Login" },
-            ].map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setDateField(f.value as DateField)}
-                className={`rounded-lg border-2 px-4 py-2 text-sm font-medium transition-colors ${
-                  dateField === f.value
-                    ? "border-primary-500 bg-primary-50 text-primary-700"
-                    : "border-slate-200 text-slate-600 hover:border-slate-300"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Date range */}
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">Date Range</p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { value: "24h", label: "Last 24h" },
-              { value: "2d", label: "Last 2 days" },
-              { value: "7d", label: "Last 7 days" },
-              { value: "30d", label: "Last 30 days" },
-              { value: "custom", label: "Custom" },
-            ].map((r) => (
-              <button
-                key={r.value}
-                onClick={() => setDateRange(r.value as DateRange)}
-                className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                  dateRange === r.value
-                    ? "border-primary-500 bg-primary-50 text-primary-700 font-medium"
-                    : "border-slate-200 text-slate-600 hover:border-slate-300"
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-          {dateRange === "custom" && (
-            <div className="mt-3 flex gap-3">
-              <Input
-                label="From"
-                type="date"
-                value={customFrom}
-                onChange={(e) => setCustomFrom(e.target.value)}
-              />
-              <Input
-                label="To"
-                type="date"
-                value={customTo}
-                onChange={(e) => setCustomTo(e.target.value)}
-              />
+          <AdminField label="Period" htmlFor="export-period" hint={type === "leads" ? "By the date the lead was received." : undefined}>
+            <select id="export-period" value={period} onChange={(e) => setPeriod(e.target.value as Period)} className={adminInputClass}>
+              {PERIODS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </AdminField>
+          {period === "custom" && (
+            <div className="grid grid-cols-2 gap-3">
+              <AdminField label="From" htmlFor="export-from">
+                <input id="export-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={adminInputClass} />
+              </AdminField>
+              <AdminField label="To" htmlFor="export-to">
+                <input id="export-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className={adminInputClass} />
+              </AdminField>
             </div>
           )}
-        </div>
 
-        {/* Vendor status filter */}
-        {exportType === "vendors" && (
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">Vendor Status (optional)</p>
-            <select
-              value={vendorStatus}
-              onChange={(e) => setVendorStatus(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-full"
-            >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-        )}
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <Button
-          className="w-full"
-          loading={loading}
-          onClick={() => void handleExport()}
-        >
-          <Download className="h-4 w-4" />
-          Export CSV
-        </Button>
-
-        <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-          <p className="font-medium mb-1">Exported columns:</p>
-          {exportType === "customers" ? (
-            <p>Name, Mobile, Mobile Verified, Signup Date, Last Login</p>
+          {type === "leads" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AdminField label="User type" htmlFor="export-type">
+                <select id="export-type" value={userType} onChange={(e) => setUserType(e.target.value)} className={adminInputClass}>
+                  <option value="">All</option>
+                  {USER_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {USER_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
+              </AdminField>
+              <AdminField label="Status" htmlFor="export-status">
+                <select id="export-status" value={leadStatus} onChange={(e) => setLeadStatus(e.target.value)} className={adminInputClass}>
+                  <option value="">All</option>
+                  {LEAD_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {LEAD_STATUS_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              </AdminField>
+            </div>
           ) : (
-            <p>Name, Mobile, Mobile Verified, Owner Type, Status, Company Name, Licence No, Signup Date, Last Login</p>
+            <div>
+              <p className="mb-2 text-sm font-medium text-slate-700">Filter by</p>
+              <div className="flex gap-3">
+                {choice("created", dateField, setDateField, "Signup date")}
+                {choice("last_login", dateField, setDateField, "Last login")}
+              </div>
+            </div>
           )}
+
+          <ErrorBox error={error} />
+          <Button className="w-full" loading={loading} onClick={() => void download()}>
+            <Download className="h-4 w-4" aria-hidden /> Download CSV
+          </Button>
+          <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+            <span className="font-medium">Columns:</span> {COLUMNS[type]}
+          </p>
         </div>
-      </div>
-    </div>
+      </AdminCard>
+    </AdminPage>
   );
 }

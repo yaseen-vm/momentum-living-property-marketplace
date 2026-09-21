@@ -44,11 +44,11 @@ Build order follows the client spec §32.
 - [x] Lead notification agent: `lead_request` event (`new_lead` done in Stage 3)
 
 ### Stage 5 — Admin
-- [ ] Leads module (filters, detail, assign agent, 8 statuses, notes, rematch)
-- [ ] Properties / opportunities CRUD (rework listings: admin-owned, `opportunity_kind`, availability toggle, archive, confidential owner fields, photos)
-- [ ] Agents CRUD
-- [ ] Corporate content editor
-- [ ] Retarget export + reports to leads
+- [x] Leads module (filters, detail, assign agent, 8 statuses, notes, rematch)
+- [x] Properties / opportunities CRUD (rework listings: admin-owned, `opportunity_kind`, availability toggle, archive, confidential owner fields, photos)
+- [x] Agents CRUD
+- [x] Corporate content editor
+- [x] Retarget export + reports to leads
 
 ### Stage 6 — Hardening
 - [ ] Remove public `/listings` API and unauthenticated file serving; signed URLs

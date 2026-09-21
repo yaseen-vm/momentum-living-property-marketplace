@@ -173,17 +173,17 @@ Request information or a viewing. Validated with `leadRequestSchema` (`packages/
 
 ---
 
-## Upload **[rework]**
+## Upload **[built]**
 
-### `POST /upload/file` **[built → rework]**
-Multipart upload through the Worker to R2. **Auth:** admin (and enquirer for `enquiry_doc`).
+### `POST /upload/file` **[built]**
+Multipart upload through the Worker to R2. **Auth:** admin for `listing_photo` and `public_media`; enquirer for `enquiry_doc`.
 
-Form fields: `context` = `listing_photo` | `public_media` | `enquiry_doc` (+ legacy `vendor_doc`), `file`, and `listing_id` / `enquiry_id` where relevant.
-Types: images `image/jpeg|png|webp` (≤ 10 MB); docs add `application/pdf` (≤ 5 MB).
+Form fields: `context` = `listing_photo` | `public_media` | `enquiry_doc` (+ legacy `vendor_doc`), `file`, and optional `area` for `public_media` (`agents` | `md` | `site`), `listing_id` / `enquiry_id` where relevant.
+Types: images `image/jpeg|png|webp` (≤ 10 MB); docs add `application/pdf` (≤ 5 MB). `public_media` objects get 24-hour cache; others 1-hour.
 **Response `201`** `{ "key": "listing-photos/.../....jpg" }`
 
 ### `GET /upload/files/:key` **[built → rework]**
-Currently **unauthenticated for every key — must be fixed.** Target:
+Currently **unauthenticated for non-public keys — must be fixed.** `public-media/*` is served publicly with long cache. Target for other prefixes:
 - `public-media/*` — public, `Cache-Control: public, max-age=86400`.
 - All other prefixes — require `?exp=<unix ms>&sig=<hex>` where `sig = HMAC-SHA256(key + exp, JWT_SECRET)` and `exp` is in the future (URLs minted with 1-hour TTL by the API when it returns photo/doc URLs). Otherwise `403`.
 
@@ -193,7 +193,7 @@ Currently **unauthenticated for every key — must be fixed.** Target:
 
 All `/admin/*` endpoints require `role = admin`, checked on every handler.
 
-### Leads **[new]** (replaces `/admin/bookings`)
+### Leads **[built]** (replaces `/admin/bookings`)
 
 #### `GET /admin/leads`
 Query: `user_type`, `lead_status`, `assigned_agent_id`, `stage` (default `completed`), `from`, `to`, `q` (name / company / mobile / reference), `limit`, `offset`.
@@ -222,7 +222,7 @@ Full lead: details, requirements, matches (with listing refs), requests, notes t
 #### `POST /admin/leads/:id/rematch`
 Re-run matching against current inventory (e.g. after adding properties); replaces `lead_matches`. **`200`** `{ "match_count": 9 }`
 
-### Properties / Opportunities **[new]** (replaces listing approval queue)
+### Properties / Opportunities **[built]** (replaces listing approval queue)
 
 #### `GET /admin/properties`
 Query: `opportunity_kind`, `type`, `status`, `is_available`, `location`, `q`, `limit`, `offset`. Includes confidential fields.
@@ -237,17 +237,17 @@ Partial update, including `status` (`draft` | `approved` | `archived`) and `phot
 #### `POST /admin/properties/:id/archive`
 Soft delete (`status = archived`, `archived_at`). Archived rows never match; existing `lead_matches` history kept.
 
-### Agents **[new]**
+### Agents **[built]**
 - `GET /admin/agents` — all, including inactive
 - `POST /admin/agents` — `{ name, position, specialization, languages[], phone, email, whatsapp, photo_key, bio, display_order }` → `201`
 - `PATCH /admin/agents/:id` — partial, incl. `is_active`
 - `DELETE /admin/agents/:id` — hard delete only if no leads/properties reference it; else `409` (deactivate instead)
 
-### Corporate Content **[new]**
+### Corporate Content **[built]**
 - `GET /admin/content` — all keys
 - `PUT /admin/content/:key` — `{ "value": { ... } }` validated per key schema → `200`
 
-### Export **[rework]**
+### Export **[built]**
 #### `GET /admin/export`
 | Param | Values |
 |-------|--------|
@@ -260,7 +260,7 @@ Soft delete (`status = archived`, `archived_at`). Archived rows never match; exi
 Columns — `leads`: `reference_no, created_at, user_type, full_name, company_name, position, email, mobile, lead_status, assigned_agent, match_count, request_count, requirements_summary`; `enquirers`: `name, mobile, mobile_verified_at, signup_date, last_login_at`.
 **`200`** `text/csv` attachment. Rate limit 5 / admin / hour. Range ≤ 366 days.
 
-### Reports **[rework]**
+### Reports **[built]**
 #### `GET /admin/reports?from=&to=`
 ```json
 {
@@ -272,9 +272,10 @@ Columns — `leads`: `reference_no, created_at, user_type, full_name, company_na
 }
 ```
 
-### Notifications **[built → rework types]**
+### Notifications **[built]**
 - `GET /admin/notifications?unread=true` → `{ count, items[{ id, type: "new_lead"|"lead_request", payload, created_at }] }`
 - `POST /admin/notifications/:id/read` → `{ ok: true }`
+- `POST /admin/notifications/read-all` → `{ ok: true }`
 
 ---
 

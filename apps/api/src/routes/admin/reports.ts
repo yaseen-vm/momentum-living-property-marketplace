@@ -1,74 +1,75 @@
 import { Hono } from "hono";
+import { LEAD_REQUEST_KINDS, LEAD_STATUSES, OPPORTUNITY_KINDS, USER_TYPES } from "@momentum/shared";
+import type { AdminReportsResponse } from "@momentum/shared";
 import type { Bindings, Variables } from "../../types";
 import { requireAuth } from "../../middleware/auth";
+import { errorBody, msParam } from "../../lib/validation";
 
-export const adminReportRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+type Env = { Bindings: Bindings; Variables: Variables };
 
-adminReportRoutes.get("/", requireAuth(["admin"]), async (c) => {
-  const { from, to } = c.req.query();
-  const fromMs = from ? parseInt(from, 10) : 0;
-  const toMs = to ? parseInt(to, 10) : Date.now();
+export const adminReportRoutes = new Hono<Env>();
 
-  const results = await c.env.DB.batch([
-      c.env.DB.prepare(
-        `SELECT status, COUNT(*) as cnt FROM listings
-         WHERE created_at >= ? AND created_at <= ? GROUP BY status`
-      ).bind(fromMs, toMs),
-      c.env.DB.prepare(
-        `SELECT status, COUNT(*) as cnt FROM vendor_profiles
-         WHERE created_at >= ? AND created_at <= ? GROUP BY status`
-      ).bind(fromMs, toMs),
-      c.env.DB.prepare(
-        `SELECT COUNT(*) as total,
-                SUM(CASE WHEN mobile_verified_at IS NOT NULL THEN 1 ELSE 0 END) as verified
-         FROM users WHERE role = 'customer' AND created_at >= ? AND created_at <= ?`
-      ).bind(fromMs, toMs),
-      c.env.DB.prepare(
-        `SELECT status, COUNT(*) as cnt FROM bookings
-         WHERE created_at >= ? AND created_at <= ? GROUP BY status`
-      ).bind(fromMs, toMs),
-      c.env.DB.prepare(
-        `SELECT type, COUNT(*) as cnt FROM listings
-         WHERE status = 'approved' AND created_at >= ? AND created_at <= ? GROUP BY type`
-      ).bind(fromMs, toMs),
-    ]);
+adminReportRoutes.use("*", requireAuth(["admin"]));
 
-  const [listingStats, vendorStats, customerStats, bookingStats, listingByType] = results as [
-    typeof results[0], typeof results[0], typeof results[0], typeof results[0], typeof results[0]
-  ];
+type CountRow = { k: string; cnt: number };
 
-  function toMap(rows: { status: string; cnt: number }[]) {
-    return Object.fromEntries(rows.map((r) => [r.status, r.cnt]));
+/** `{ key: count }` with every expected key present (0 when absent). */
+function tally<K extends string>(keys: readonly K[], rows: CountRow[]): Record<K, number> {
+  const counts = Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>;
+  for (const r of rows) if ((keys as readonly string[]).includes(r.k)) counts[r.k as K] = r.cnt;
+  return counts;
+}
+
+// Leads, requests and enquirers are counted by creation date within the range;
+// properties are a snapshot of current inventory.
+adminReportRoutes.get("/", async (c) => {
+  const from = msParam(c.req.query("from")) ?? 0;
+  const to = msParam(c.req.query("to")) ?? Date.now();
+  if (Number.isNaN(from) || Number.isNaN(to)) {
+    return c.json(errorBody("VALIDATION_ERROR", "from/to: Use Unix milliseconds"), 422);
   }
 
-  const lMap = toMap(listingStats.results as { status: string; cnt: number }[]);
-  const vMap = toMap(vendorStats.results as { status: string; cnt: number }[]);
-  const bMap = toMap(bookingStats.results as { status: string; cnt: number }[]);
-  const tMap = toMap(listingByType.results as { status: string; cnt: number }[]);
-  const cRow = (customerStats.results[0] ?? { total: 0, verified: 0 }) as { total: number; verified: number };
+  const db = c.env.DB;
+  const [byStatus, byUserType, requests, byKind, byPropertyStatus, available, enquirers] = await db.batch([
+    db.prepare(
+      `SELECT lead_status AS k, COUNT(*) AS cnt FROM enquiries
+       WHERE stage = 'completed' AND created_at >= ? AND created_at <= ? GROUP BY lead_status`
+    ).bind(from, to),
+    db.prepare(
+      `SELECT user_type AS k, COUNT(*) AS cnt FROM enquiries
+       WHERE stage = 'completed' AND created_at >= ? AND created_at <= ? GROUP BY user_type`
+    ).bind(from, to),
+    db.prepare(
+      `SELECT kind AS k, COUNT(*) AS cnt FROM lead_requests WHERE created_at >= ? AND created_at <= ? GROUP BY kind`
+    ).bind(from, to),
+    db.prepare(`SELECT opportunity_kind AS k, COUNT(*) AS cnt FROM listings WHERE status != 'archived' GROUP BY opportunity_kind`),
+    db.prepare("SELECT status AS k, COUNT(*) AS cnt FROM listings GROUP BY status"),
+    db.prepare("SELECT COUNT(*) AS cnt FROM listings WHERE status = 'approved' AND is_available = 1"),
+    db.prepare(
+      `SELECT COUNT(*) AS cnt FROM users
+       WHERE role = 'customer' AND mobile_verified_at IS NOT NULL AND created_at >= ? AND created_at <= ?`
+    ).bind(from, to),
+  ]);
 
-  return c.json({
-    customers_total: cRow.total,
-    listings_by_status: {
-      pending: lMap["pending"] ?? 0,
-      approved: lMap["approved"] ?? 0,
-      rejected: lMap["rejected"] ?? 0,
+  const rows = (r: D1Result | undefined) => (r?.results ?? []) as CountRow[];
+  const count = (r: D1Result | undefined) => (r?.results[0] as { cnt: number } | undefined)?.cnt ?? 0;
+
+  const leadsByStatus = tally(LEAD_STATUSES, rows(byStatus));
+  const propertiesByKind = tally(OPPORTUNITY_KINDS, rows(byKind));
+  const body: AdminReportsResponse = {
+    leads: {
+      total: Object.values(leadsByStatus).reduce((a, b) => a + b, 0),
+      by_status: leadsByStatus,
+      by_user_type: tally(USER_TYPES, rows(byUserType)),
     },
-    listings_by_type: {
-      property: tMap["property"] ?? 0,
-      plot: tMap["plot"] ?? 0,
-      room: tMap["room"] ?? 0,
+    requests: tally(LEAD_REQUEST_KINDS, rows(requests)),
+    properties: {
+      total: Object.values(propertiesByKind).reduce((a, b) => a + b, 0),
+      available: count(available),
+      by_kind: propertiesByKind,
+      by_status: Object.fromEntries(rows(byPropertyStatus).map((r) => [r.k, r.cnt])),
     },
-    vendors_by_status: {
-      pending: vMap["pending"] ?? 0,
-      approved: vMap["approved"] ?? 0,
-      rejected: vMap["rejected"] ?? 0,
-    },
-    bookings_by_status: {
-      pending: bMap["pending"] ?? 0,
-      owner_confirmed: bMap["owner_confirmed"] ?? 0,
-      customer_contacted: bMap["customer_contacted"] ?? 0,
-      closed: bMap["closed"] ?? 0,
-    },
-  });
+    enquirers: { verified: count(enquirers) },
+  };
+  return c.json(body);
 });

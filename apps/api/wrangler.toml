@@ -18,3 +18,4 @@ bucket_name = "momentum-files"
 
 [vars]
 ENVIRONMENT = "production"
+SITE_URL = "https://momentum-living-web.pages.dev"
