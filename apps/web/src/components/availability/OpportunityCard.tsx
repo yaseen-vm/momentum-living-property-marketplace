@@ -1,18 +1,29 @@
-import { BedDouble, Building2, CalendarDays, MapPin, MessageCircle, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, BedDouble, Building2, CalendarDays, Check, Info, MapPin, MessageCircle, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@momentum/shared";
 import type { MatchedOpportunity } from "@momentum/shared";
 import { useChatWithAgent } from "../site/ChatWithAgent";
 import { formatAvailability, formatPrice } from "../../lib/format";
+import { opportunityPath } from "../../lib/site";
+import type { RequestTarget } from "./RequestDialog";
 
 const MAX_FACILITIES = 5;
+
+interface OpportunityCardProps {
+  opportunity: MatchedOpportunity;
+  enquiryId: string;
+  onRequest: (target: RequestTarget) => void;
+}
 
 /**
  * Opportunity card (spec §18). Shows only enquirer-safe fields; the API never sends owner
  * identity, internal notes or exact coordinates.
  */
-export function OpportunityCard({ opportunity: o }: { opportunity: MatchedOpportunity }) {
+export function OpportunityCard({ opportunity: o, enquiryId, onRequest }: OpportunityCardProps) {
   const { openChat } = useChatWithAgent();
+  const detailPath = opportunityPath(o.id, enquiryId);
+  const infoRequested = o.requests.includes("info");
   const rooms =
     o.num_rooms !== null
       ? `${o.num_rooms} rooms${o.persons_per_room !== null ? ` × ${o.persons_per_room} persons` : ""}`
@@ -41,7 +52,11 @@ export function OpportunityCard({ opportunity: o }: { opportunity: MatchedOpport
 
       <div className="flex flex-1 flex-col p-6">
         {o.reference_no && <p className="eyebrow">Ref. {o.reference_no}</p>}
-        <h2 className="mt-2 font-serif text-xl leading-snug text-navy-900">{o.title}</h2>
+        <h2 className="mt-2 font-serif text-xl leading-snug text-navy-900">
+          <Link to={detailPath} className="hover:text-navy-700">
+            {o.title}
+          </Link>
+        </h2>
 
         <ul className="mt-4 space-y-2 text-sm text-charcoal-600">
           {facts.map(([Icon, value]) =>
@@ -71,9 +86,30 @@ export function OpportunityCard({ opportunity: o }: { opportunity: MatchedOpport
 
         <div className="mt-auto pt-6">
           <p className="font-semibold text-navy-900">{formatPrice(o.price, o.currency, o.price_period)}</p>
-          <button type="button" onClick={() => openChat(o.agent?.id ?? null)} className="btn-secondary mt-4 w-full">
-            <MessageCircle className="h-4 w-4" /> Chat With Agent
-          </button>
+          <div className="mt-4 grid gap-2">
+            <Link to={detailPath} className="btn-primary w-full">
+              View Details <ArrowRight className="h-4 w-4" />
+            </Link>
+            <button
+              type="button"
+              disabled={infoRequested}
+              onClick={() => onRequest({ kind: "info", opportunity: o })}
+              className="btn-secondary w-full"
+            >
+              {infoRequested ? (
+                <>
+                  <Check className="h-4 w-4" /> Information Requested
+                </>
+              ) : (
+                <>
+                  <Info className="h-4 w-4" /> Request Information
+                </>
+              )}
+            </button>
+            <button type="button" onClick={() => openChat(o.agent?.id ?? null)} className="btn-secondary w-full">
+              <MessageCircle className="h-4 w-4" /> Chat With Agent
+            </button>
+          </div>
         </div>
       </div>
     </article>

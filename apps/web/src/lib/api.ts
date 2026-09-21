@@ -3,8 +3,11 @@ import type {
   CompleteEnquiryResponse,
   ContentAllResponse,
   CreateEnquiryResponse,
+  CreateLeadRequestResponse,
   EnquiryDetails,
+  LeadRequestInput,
   MatchesResponse,
+  OpportunityDetailResponse,
   OtpSendResponse,
 } from "@momentum/shared";
 
@@ -86,6 +89,17 @@ export const api = {
       }),
     matches: (enquiryId: string, token: string) =>
       request<MatchesResponse>(`/availability/enquiries/${enquiryId}/matches`, { token }),
+    opportunity: (id: string, enquiryId: string, token: string) =>
+      request<OpportunityDetailResponse>(
+        `/availability/opportunities/${id}?${new URLSearchParams({ enquiry_id: enquiryId })}`,
+        { token }
+      ),
+    createRequest: (enquiryId: string, body: LeadRequestInput, token: string) =>
+      request<CreateLeadRequestResponse>(`/availability/enquiries/${enquiryId}/requests`, {
+        method: "POST",
+        body: JSON.stringify(body),
+        token,
+      }),
   },
   listings: {
     browse: (params: Record<string, string>, token: string) =>

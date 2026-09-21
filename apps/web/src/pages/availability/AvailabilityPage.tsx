@@ -7,6 +7,7 @@ import { RequirementsStep } from "../../components/availability/RequirementsStep
 import { UserTypeStep } from "../../components/availability/UserTypeStep";
 import { WizardProgress } from "../../components/availability/WizardProgress";
 import { ApiError, api } from "../../lib/api";
+import { resultsPath } from "../../lib/site";
 import { usePageMeta } from "../../lib/usePageMeta";
 import { useAuthStore } from "../../store/auth";
 import { useAvailabilityWizard } from "../../store/availabilityWizard";
@@ -83,7 +84,7 @@ export default function AvailabilityPage() {
 
   function finish(enquiryId: string) {
     wizard.reset();
-    navigate(`/availability/results/${enquiryId}`);
+    navigate(resultsPath(enquiryId));
   }
 
   const canStartOver = wizard.step !== "type";

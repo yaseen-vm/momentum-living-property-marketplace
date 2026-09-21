@@ -21,6 +21,16 @@ export const LEGAL_ITEMS = [
 
 export const AVAILABILITY_PATH = "/availability";
 
+/** Opportunity detail route; the enquiry id tells the API which matches to check. */
+export function opportunityPath(opportunityId: string, enquiryId: string): string {
+  return `${AVAILABILITY_PATH}/opportunities/${opportunityId}?${new URLSearchParams({ enquiry: enquiryId })}`;
+}
+
+/** Matched Opportunities route for an enquiry. */
+export function resultsPath(enquiryId: string): string {
+  return `${AVAILABILITY_PATH}/results/${enquiryId}`;
+}
+
 /** True for unfilled CMS values such as `[COMPANY PHONE]`: render as text, never as a link. */
 export function isPlaceholder(value: string | null | undefined): boolean {
   return !value || /^\[.*\]$/.test(value.trim());

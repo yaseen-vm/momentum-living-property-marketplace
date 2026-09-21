@@ -70,7 +70,7 @@ Active agents ordered by `display_order`. `photo_url` is `null` unless `photo_r2
 
 ---
 
-## Availability Journey **[built, except opportunity detail and requests]**
+## Availability Journey **[built]**
 
 Route: `apps/api/src/routes/availability.ts`. Request schemas and response types: `packages/shared/src/availability.ts`.
 
@@ -121,7 +121,7 @@ Step 3. Validated with the Zod schema for the enquiry's `user_type` (keys per ty
 **Errors:** `404`, `422 VALIDATION_ERROR`, `409 CONFLICT` (already completed — requirements are immutable after completion; start a new enquiry)
 
 ### `GET /availability/enquiries/:id/matches`
-Step 4 results. **Only** when the enquiry is owned by the caller **and** `stage = completed`; otherwise `403 NOT_QUALIFIED`. Matches whose listing has since been unpublished or marked unavailable are omitted. `price` / `price_period` are `null` when `show_price = false`; `agent` is `null` when no active agent is assigned. `cover_photo_url` is currently an unsigned `/upload/files/` URL (signed URLs arrive with Stage 6).
+Step 4 results. **Only** when the enquiry is owned by the caller **and** `stage = completed`; otherwise `403 NOT_QUALIFIED`. Matches whose listing has since been unpublished or marked unavailable are omitted. `price` / `price_period` are `null` when `show_price = false`; `agent` is `null` when no active agent is assigned. `cover_photo_url` is currently an unsigned `/upload/files/` URL (signed URLs arrive with Stage 6). `requests` lists the request kinds (`info`, `viewing`) the enquirer has already sent for that opportunity.
 
 ```json
 {
@@ -135,23 +135,41 @@ Step 4 results. **Only** when the enquiry is owned by the caller **and** `stage 
       "availability_date": 1790000000000,
       "price": 480000, "price_period": "year", "currency": "AED", "show_price": true,
       "summary": "...", "cover_photo_url": "<signed url, 1 h>", "score": 86,
-      "agent": { "id": "...", "name": "...", "whatsapp": "...", "phone": "...", "email": "..." }
+      "agent": { "id": "...", "name": "...", "whatsapp": "...", "phone": "...", "email": "..." },
+      "requests": ["info"]
     }
   ]
 }
 ```
 Never includes `owner_name`, `owner_contact`, `internal_notes`, exact coordinates (unless `show_map`), or other enquirers' data.
 
-### `GET /availability/opportunities/:id?enquiry_id=...` **[new — Stage 4]**
-Opportunity detail. Allowed only if `(enquiry_id, listing_id)` exists in `lead_matches` and the enquiry is owned by the caller and completed; else `403 NOT_QUALIFIED`. Returns card fields plus `description`, `terms`, commercial fields, all photos (signed URLs), labour-camp/warehouse/land specs, `latitude/longitude` only if `show_map`.
+### `GET /availability/opportunities/:id?enquiry_id=...`
+Opportunity detail. Allowed only if `(enquiry_id, listing_id)` exists in `lead_matches` and the enquiry is owned by the caller and completed; else `403 NOT_QUALIFIED`. A matched listing that has since been unpublished or marked unavailable returns `404 NOT_FOUND`. Returns the card fields (without `cover_photo_url` / `score`) plus `description`, `terms`, commercial fields, all photos, labour-camp/warehouse/land specs, and `latitude` / `longitude` only if `show_map` (otherwise `null`). Photo URLs are unsigned until Stage 6, like `cover_photo_url`.
 
-### `POST /availability/enquiries/:id/requests` **[new — Stage 4]**
-Request information or a viewing.
+```json
+{
+  "enquiry": { "id": "...", "reference_no": "LD-2026-000123", "user_type": "tenant" },
+  "opportunity": {
+    "id": "...", "reference_no": "ML-LC-0042", "title": "...", "...card fields": "...",
+    "requests": [],
+    "description": "...", "terms": "...",
+    "photos": [{ "id": "...", "url": "<signed url, 1 h>" }],
+    "size_sqft": null, "room_size_sqft": 180, "mohre_certified": true, "ejari_registered": true,
+    "num_loading_bays": null, "year_built": null, "freehold": false,
+    "security_deposit_pct": 5, "commission_pct": 2, "ejari_fee": 220, "admin_fee": null,
+    "latitude": null, "longitude": null
+  }
+}
+```
+Never includes `owner_name`, `owner_contact` or `internal_notes`.
+
+### `POST /availability/enquiries/:id/requests`
+Request information or a viewing. Validated with `leadRequestSchema` (`packages/shared/src/availability.ts`): `kind` = `info` | `viewing`, `message` ≤ 1,000 chars (optional), `preferred_date` Unix ms (optional, kept for `viewing` only).
 
 **Request** `{ "listing_id": "...", "kind": "viewing", "message": "Can we visit next week?", "preferred_date": 1790500000000 }`
 **Effects:** insert `lead_requests`; for `viewing`, move `lead_status` to `viewing_requested` if currently `new|contacted|qualified|matching`; `waitUntil` admin notification (`lead_request`) + email.
 **Response `201`** `{ "request_id": "..." }`
-**Errors:** `403 NOT_QUALIFIED` (listing not in matches), `409 CONFLICT` (duplicate kind for that listing), `429 RATE_LIMITED` (10 / user / hour)
+**Errors:** `422 VALIDATION_ERROR`, `403 NOT_QUALIFIED` (enquiry not owned/completed, or listing not in matches or no longer available), `409 CONFLICT` (duplicate kind for that listing), `429 RATE_LIMITED` (10 / user / hour, `rl:request:{user_id}`)
 
 ---
 

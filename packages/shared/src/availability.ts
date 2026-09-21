@@ -455,9 +455,70 @@ export interface MatchedOpportunity {
   cover_photo_url: string | null;
   score: number;
   agent: OpportunityAgent | null;
+  /** Request kinds the enquirer has already sent for this opportunity. */
+  requests: LeadRequestKind[];
 }
 
 export interface MatchesResponse {
   enquiry: { id: string; reference_no: string; user_type: UserType };
   matches: MatchedOpportunity[];
+}
+
+export interface OpportunityPhoto {
+  id: string;
+  url: string;
+}
+
+/**
+ * Opportunity detail (spec §19): card fields plus description, terms, specs, commercial
+ * fields and photos. Coordinates are present only when the listing allows the map.
+ */
+export interface OpportunityDetail extends Omit<MatchedOpportunity, "cover_photo_url" | "score"> {
+  description: string | null;
+  terms: string | null;
+  photos: OpportunityPhoto[];
+  size_sqft: number | null;
+  room_size_sqft: number | null;
+  mohre_certified: boolean;
+  ejari_registered: boolean;
+  num_loading_bays: number | null;
+  year_built: number | null;
+  freehold: boolean;
+  security_deposit_pct: number | null;
+  commission_pct: number | null;
+  ejari_fee: number | null;
+  admin_fee: number | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+export interface OpportunityDetailResponse {
+  enquiry: { id: string; reference_no: string; user_type: UserType };
+  opportunity: OpportunityDetail;
+}
+
+// ─── Stage 4: information / viewing requests ────────────────────────────────
+
+export const LEAD_REQUEST_KINDS = ["info", "viewing"] as const;
+export type LeadRequestKind = (typeof LEAD_REQUEST_KINDS)[number];
+
+export const LEAD_REQUEST_KIND_LABELS: Record<LeadRequestKind, string> = {
+  info: "Information",
+  viewing: "Viewing",
+};
+
+/** `POST /availability/enquiries/:id/requests`. `preferred_date` is kept for viewings only. */
+export const leadRequestSchema = z
+  .object({
+    listing_id: z.string().trim().min(1, "Unknown opportunity").max(64),
+    kind: choice(LEAD_REQUEST_KINDS),
+    message: longText,
+    preferred_date: timestamp.optional(),
+  })
+  .transform((r) => (r.kind === "viewing" ? r : { ...r, preferred_date: undefined }));
+
+export type LeadRequestInput = z.input<typeof leadRequestSchema>;
+
+export interface CreateLeadRequestResponse {
+  request_id: string;
 }

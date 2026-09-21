@@ -143,13 +143,13 @@ Indexes: `(enquiry_id, listing_id)` UNIQUE, `(listing_id)`.
 
 ---
 
-### `lead_requests` **(new)**
+### `lead_requests` **(migration 0006)**
 "Request Information" / "Request Viewing" actions from results and detail pages.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `enquiry_id` | TEXT NOT NULL FK → enquiries | |
+| `enquiry_id` | TEXT NOT NULL FK → enquiries | `ON DELETE CASCADE` |
 | `listing_id` | TEXT NOT NULL FK → listings | Must exist in `lead_matches` for the enquiry |
 | `kind` | TEXT NOT NULL | `info` \| `viewing` |
 | `message` | TEXT | Optional, ≤ 1,000 chars |
@@ -225,7 +225,7 @@ Seeded by migration 0004 with `[PLACEHOLDER]` values (never invented data). The 
 ---
 
 ### `listings` — properties & opportunities
-**Rework:** listings become **admin-managed** records representing either a property or an opportunity. The `vendor_id NOT NULL` constraint must be relaxed (table rebuild migration — SQLite cannot drop NOT NULL in place). Migration 0005 added the columns marked **(0005)**; the others marked **(new)** come with the admin properties rebuild (Stage 5). `location_slug` should come from the shared `LOCATIONS` catalogue so location filters can match it.
+**Rework:** listings become **admin-managed** records representing either a property or an opportunity. The `vendor_id NOT NULL` constraint must be relaxed (table rebuild migration — SQLite cannot drop NOT NULL in place). Migrations 0005 and 0006 added the columns marked **(0005)** / **(0006)**; the others marked **(new)** come with the admin properties rebuild (Stage 5). `location_slug` should come from the shared `LOCATIONS` catalogue so location filters can match it.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -249,14 +249,14 @@ Seeded by migration 0004 with `[PLACEHOLDER]` values (never invented data). The 
 | `location_slug` | TEXT NOT NULL | Normalised area slug, e.g. `dubai-jebel-ali` |
 | `location_text` | TEXT NOT NULL | **General area only** (shown to enquirers) |
 | `latitude` / `longitude` | REAL | Admin-only unless `show_map = 1` |
-| `show_map` | INTEGER NOT NULL DEFAULT 0 **(new)** | |
+| `show_map` | INTEGER NOT NULL DEFAULT 0 **(0006)** | Show the location map on the opportunity detail page |
 | `availability_date` | INTEGER **(0005)** | Unix ms |
 | `size_sqft`, `bedrooms`, `bathrooms` | INTEGER | |
 | `num_rooms`, `persons_per_room`, `room_size_sqft`, `total_capacity` | | Labour camp fields (migration 0002) |
 | `mohre_certified`, `ejari_registered` | INTEGER | Labour camp flags |
 | `num_loading_bays`, `year_built`, `freehold` | | Warehouse / land fields |
 | `security_deposit_pct`, `commission_pct`, `ejari_fee`, `admin_fee` | REAL | Commercial terms |
-| `terms` | TEXT **(new)** | Free-text commercial terms for detail page |
+| `terms` | TEXT **(0006)** | Free-text commercial terms for detail page |
 | `amenities` | TEXT | JSON array — "facilities" |
 | `owner_name`, `owner_contact` | TEXT **(new)** | **Confidential** — admin API only, never returned to enquirers |
 | `internal_notes` | TEXT **(new)** | Admin only |
@@ -305,7 +305,7 @@ Index: `(listing_id, display_order)`.
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `type` | TEXT NOT NULL | `new_lead` \| `lead_request` **(new)**; legacy `new_booking` \| `vendor_pending` \| `listing_pending` |
+| `type` | TEXT NOT NULL | `new_lead` \| `lead_request`; legacy `new_booking` \| `vendor_pending` \| `listing_pending` |
 | `payload` | TEXT NOT NULL | JSON, e.g. `{ enquiry_id, reference_no, user_type }` |
 | `read_at` | INTEGER | NULL = unread |
 | `created_at` | INTEGER NOT NULL | |
@@ -365,7 +365,7 @@ The bucket is **private**. Files are uploaded through the API Worker (`POST /upl
 | `otp:rate:{mobile}` | send count | 600 s |
 | `otp:lock:{mobile}` | `"1"` | 900 s |
 | `rl:enquiry:{user_id}` | enquiries created this hour | 3,600 s |
-| `rl:request:{user_id}` **(new)** | info/viewing requests this hour | 3,600 s |
+| `rl:request:{user_id}` | info/viewing requests this hour (limit 10) | 3,600 s |
 | `rl:export:{user_id}` | exports this hour | 3,600 s |
 | `config:*` | Platform config | none |
 

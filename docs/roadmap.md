@@ -38,10 +38,10 @@ Build order follows the client spec §32.
 - [ ] Landlord supporting-document upload (`enquiry-docs/*`)
 
 ### Stage 4 — Details & contact
-- [ ] Opportunity cards + detail page (gated by matches)
-- [ ] Request information / viewing (`lead_requests`)
-- [ ] Agent contact from card/detail
-- [ ] Lead notification agent: `lead_request` event (`new_lead` done in Stage 3)
+- [x] Opportunity cards + detail page (gated by matches)
+- [x] Request information / viewing (`lead_requests`, migration 0006)
+- [x] Agent contact from card/detail
+- [x] Lead notification agent: `lead_request` event (`new_lead` done in Stage 3)
 
 ### Stage 5 — Admin
 - [ ] Leads module (filters, detail, assign agent, 8 statuses, notes, rematch)
