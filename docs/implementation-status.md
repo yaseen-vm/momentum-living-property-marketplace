@@ -1,6 +1,6 @@
 # Implementation Status: Client Build Spec vs Current Code
 
-**Last reviewed:** 2026-09-21 (branch `feat/stage-4-details-contact`)
+**Last reviewed:** 2026-09-21 (branch `feat/stage-5-admin`)
 **Compared:** the client's *Build Specification: Momentum Living* against the current repo (docs + `apps/*` code)
 
 The current code was built for the **original marketplace scope** in quotation LNG-2026-WD-003. In that model, vendors self-register and post listings, and customers log in with OTP and browse everything. The client's spec describes a **different product**: a corporate site with no inventory, plus a gated **Availability** qualification journey that produces leads. This file lists, item by item, what is already done, what can be reused, what must be reworked, what is new and what is legacy.
@@ -24,7 +24,7 @@ The current code was built for the **original marketplace scope** in quotation L
 |---------------|--------|-------|
 | Platform foundation (monorepo, CI, D1, Workers, Pages) | ✅ | Reusable as-is |
 | SMS OTP backend (§15) | ✅ | Dev fallback gated on `ENVIRONMENT=development`; otherwise `503` (Stage 3) |
-| Admin shell + notifications (§21) | 🟡 | Layout reusable; modules need retargeting |
+| Admin shell + notifications (§21) | ✅ | Leads, Properties, Agents, Content, Reports, Export (Stage 5) |
 | Branding & design system (§2) | ✅ | Navy/white/charcoal/gold tokens, wordmark with LABOURCAMPS.COM (Stage 1) |
 | Global navigation & footer (§3, §25) | ✅ | Built; footer contact reads `site_content.company` (Stage 2) |
 | Home page (§4–6) | ✅ | Spec hero, CMS about block + audiences, 8 Why Choose cards; no inventory or invented facts |
@@ -33,13 +33,13 @@ The current code was built for the **original marketplace scope** in quotation L
 | Availability wizard, steps 1–4 (§12–17) | ✅ | `/availability` wizard: type → details + consent → OTP → requirements → results (Stage 3) |
 | Matching engine (§17) | ✅ | Rule-based scorer on an indexed candidate query; `lead_matches` snapshot (Stage 3) |
 | Opportunity cards + detail (§18–19) | ✅ | Gated cards with View Details / Request Information / Chat With Agent; gated detail page with Request Viewing / More Information (Stage 4) |
-| Lead management (§20) | 🟡 | `enquiries` = leads with 8 statuses; `lead_requests` attached to leads; `new_lead` + `lead_request` dashboard notifications + email (Stages 3–4); admin leads module pending (Stage 5) |
-| Admin: properties, agents, leads, content (§21) | ⬜ / 🔁 | Only vendor/listing approval queues and bookings exist |
+| Lead management (§20) | ✅ | `enquiries` = leads with 8 statuses; `lead_requests`; admin leads module with filters, detail, assign, notes, rematch (Stage 5) |
+| Admin: properties, agents, leads, content (§21) | ✅ | Leads, Properties (CRUD + archive + availability), Agents (CRUD + photo), Content editor, Reports, Export (Stage 5) |
 | Security & privacy (§22) | 🟡 / ⚠️ | Availability API gated + Zod-validated; 2 access-control holes left (public `/listings` API, unsigned file serving), no headers |
 | SEO (§24) | ⬜ | One static `<title>`; excluded from original quote |
 | Vendor portal, shortlists, public browse | 🗄️ | Not in spec |
 
-**Rough completion against the client spec: about 60 %** (foundation, OTP, admin shell, corporate site, availability journey, opportunity detail and requests). Most of the product-facing work is still to be done.
+**Rough completion against the client spec: about 80 %** (foundation, OTP, corporate site, availability journey, opportunity detail and requests, full admin module). Remaining: hardening (signed URLs, security headers, legacy removal), SEO and responsive QA.
 
 ---
 
@@ -49,7 +49,7 @@ The current code was built for the **original marketplace scope** in quotation L
 |------|--------|---------------|---------------|
 | pnpm monorepo, workspaces | ✅ | `apps/web`, `apps/api`, `apps/ingestion`, `packages/shared` | — |
 | Wrangler config, D1/KV/R2 bindings | ✅ | `apps/api/wrangler.toml` | Add final domain routes |
-| D1 migrations | 🟡 | `0001_init` … `0004_site_content_agents`, `0005_availability`, `0006_lead_requests` | New migrations (see Stage 5) |
+| D1 migrations | 🟡 | `0001_init` … `0004_site_content_agents`, `0005_availability`, `0006_lead_requests`, `0007_admin` | — |
 | CI | 🟡 | `.github/workflows/ci.yml`: typecheck + deploy | Add `pnpm lint`, `pnpm audit` |
 | JWT HS256 | ✅ | `apps/api/src/lib/jwt.ts`, `middleware/auth.ts` | Remove `vendor` role usage later |
 | Shared types | 🟡 | `packages/shared/src/index.ts`; content + agent types in `content.ts`; enquiry/lead types, location + facility catalogues and Zod schemas in `availability.ts` | Legacy `ListingType` (`property\|plot\|room`) still used by old screens; new code uses `PropertyType` (`labour_camp\|warehouse\|land`) |
@@ -110,25 +110,25 @@ The current code was built for the **original marketplace scope** in quotation L
 
 | Item | Spec | Status | Current state | What's needed |
 |------|------|--------|---------------|---------------|
-| Opportunity card fields | §18 | ✅ | `OpportunityCard.tsx`: reference no., title, general location, capacity, rooms × persons, type, facilities, availability, price (or "on request"), summary; **View Details**, **Request Information** (shows "Information Requested" once sent), **Chat With Agent** | Authorised images depend on admin photo upload (Stage 5) |
-| Opportunity detail page | §19 | ✅ | `pages/availability/OpportunityDetailPage.tsx` at `/availability/opportunities/:id?enquiry=…`; `GET /availability/opportunities/:id` gated by `lead_matches` (403) and availability (404); gallery, overview, facilities, accommodation specs, commercial information, terms, map only when `show_map`; agent block; `noindex`. Migration 0006 adds `listings.terms`, `show_map` | Admin form for `terms` / `show_map` (Stage 5); signed photo URLs (Stage 6) |
-| Hide owner info | §18 | ✅ | Card and detail queries select enquirer-safe columns only; coordinates nulled unless `show_map` | Confidential owner columns arrive with the admin properties rebuild (Stage 5) |
-| Request information / viewing | §19 | ✅ | `RequestDialog.tsx` → `POST /availability/enquiries/:id/requests` (`leadRequestSchema`); `lead_requests` (migration 0006) with a unique `(enquiry_id, listing_id, kind)`; a viewing moves `new\|contacted\|qualified\|matching` leads to `viewing_requested`; 10 / user / hour | Admin view of requests on the lead (Stage 5) |
-| Contact assigned agent | §33 | ✅ | Card and detail open the Chat With an Agent picker with `listings.assigned_agent_id` preselected (any agent when unset or inactive) | Admin assigns agents to listings (Stage 5) |
-| Lead notification (dashboard + email) | §20 | ✅ | `new_lead` (Stage 3) and `lead_request` (`notifyLeadRequest`) via `runAgent`: `admin_notifications` + Resend email | Admin UI for these notification types (Stage 5) |
+| Opportunity card fields | §18 | ✅ | `OpportunityCard.tsx`: reference no., title, general location, capacity, rooms × persons, type, facilities, availability, price (or "on request"), summary; **View Details**, **Request Information** (shows "Information Requested" once sent), **Chat With Agent** | Signed photo URLs (Stage 6) |
+| Opportunity detail page | §19 | ✅ | `pages/availability/OpportunityDetailPage.tsx` at `/availability/opportunities/:id?enquiry=…`; `GET /availability/opportunities/:id` gated by `lead_matches` (403) and availability (404); gallery, overview, facilities, accommodation specs, commercial information, terms, map only when `show_map`; agent block; `noindex`. Migration 0006 adds `listings.terms`, `show_map` | Signed photo URLs (Stage 6) |
+| Hide owner info | §18 | ✅ | Card and detail queries select enquirer-safe columns only; coordinates nulled unless `show_map`; confidential `owner_name`, `owner_contact`, `internal_notes` columns (migration 0007) admin-only | — |
+| Request information / viewing | §19 | ✅ | `RequestDialog.tsx` → `POST /availability/enquiries/:id/requests` (`leadRequestSchema`); `lead_requests` (migration 0006) with a unique `(enquiry_id, listing_id, kind)`; a viewing moves `new\|contacted\|qualified\|matching` leads to `viewing_requested`; 10 / user / hour; admin sees requests on lead detail (Stage 5) | — |
+| Contact assigned agent | §33 | ✅ | Card and detail open the Chat With an Agent picker with `listings.assigned_agent_id` preselected (any agent when unset or inactive); admin assigns agents via properties CRUD (Stage 5) | — |
+| Lead notification (dashboard + email) | §20 | ✅ | `new_lead` (Stage 3) and `lead_request` (`notifyLeadRequest`) via `runAgent`: `admin_notifications` + Resend email; emails include admin lead link (Stage 5); notification dropdown with mark-read (Stage 5) | — |
 
 ## Stage 5: Admin
 
 | Item | Spec | Status | Current state | What's needed |
 |------|------|--------|---------------|---------------|
 | Admin login / protection | §21 | ✅ | OTP + `role=admin` in D1, 8 h JWT, `ProtectedRoute` | — |
-| Admin layout, notifications feed | §21 | 🟡 | `AdminLayout.tsx`, `routes/admin/notifications.ts` | New nav items; new notification types |
-| **Leads** list/filter/assign/status/notes | §20–21 | 🔁 | `AdminBookingsPage.tsx`: 4 statuses, per-booking notes | Rebuild on `enquiries`: 8 statuses, user-type filter, agent assign, requirements view, matches, rematch |
-| **Properties** add/edit/archive/availability/photos/pricing/facilities/ref no. | §21 | 🔁 | Only vendors create listings (`VendorListingFormPage.tsx`, 426 lines, labour-camp fields); admin can only approve/reject | Move the form into admin; add `opportunity_kind`, `reference_no`, `is_available`, archive, confidential owner fields; relax `vendor_id NOT NULL` (table rebuild) |
-| **Agents** CRUD | §21 | ⬜ | | Page + API + photo upload (`public-media/`) |
-| **Corporate content** editor | §21 | ⬜ | | Page per content key + `PUT /admin/content/:key` |
-| CSV export | extra | 🔁 | `customers` / `owners` exports | Retarget to `leads` / `enquirers` |
-| Reports | extra | 🔁 | Listings/vendors/customers/bookings counts | Leads by status/type, properties by availability |
+| Admin layout, notifications feed | §21 | ✅ | `AdminLayout.tsx` with navy sidebar, 6-item nav (Leads, Properties, Agents, Content, Reports, Export), notification dropdown with mark-read / mark-all-read, mobile bottom nav | — |
+| **Leads** list/filter/assign/status/notes | §20–21 | ✅ | `AdminLeadsPage.tsx`, `AdminLeadDetailPage.tsx`; `routes/admin/leads.ts`: list with filters (user_type, lead_status, agent, stage, date range, search), detail (contact, requirements with field labels, matches, requests, notes timeline), PATCH (status + agent + note), standalone notes, rematch | — |
+| **Properties** add/edit/archive/availability/photos/pricing/facilities/ref no. | §21 | ✅ | `AdminPropertiesPage.tsx`, `AdminPropertyFormPage.tsx`; `routes/admin/properties.ts`: list with filters, create with auto-reference `ML-{LC\|WH\|LD}-{seq:04}`, edit (all fields incl. `opportunity_kind`, photos with alt text and reorder), availability toggle, archive. Migration 0007: `vendor_id`/`price` nullable, `owner_name`, `owner_contact`, `internal_notes`, `created_by`, `archived_at` | — |
+| **Agents** CRUD | §21 | ✅ | `AdminAgentsPage.tsx` with add/edit modal; `routes/admin/agents.ts`: list (incl. inactive, with lead/property counts), create, update, delete (only unreferenced, else 409); photo upload to `public-media/agents/` | — |
+| **Corporate content** editor | §21 | ✅ | `AdminContentPage.tsx` with recursive field editor (text, textarea, boolean, select, image upload, string lists, object lists, groups); `routes/admin/content.ts`: GET all keys, PUT per key with per-key Zod validation from `SITE_CONTENT_SCHEMAS` | — |
+| CSV export | extra | ✅ | `AdminExportPage.tsx`, `routes/admin/export.ts`: `leads` and `enquirers` exports with period, user_type, lead_status filters; CSV blob download; 5/hour rate limit; range ≤ 366 days | — |
+| Reports | extra | ✅ | `AdminReportsPage.tsx`, `routes/admin/reports.ts`: leads by status + user type, requests by kind, properties by kind + status + available count, verified enquirers; stat cards linked to filtered admin lists; date range picker | — |
 
 ## Stage 6: Hardening
 
@@ -216,7 +216,7 @@ The original quotation was ₹ 80,000 for 8 working days and included no SEO. Pa
 | 15 | Can view an opportunity | ✅ Result cards and gated detail page |
 | 16 | Can request information/viewing | ✅ `lead_requests` + admin notification and email |
 | 17 | Can contact assigned agent | 🟡 Chat With Agent on cards (listing's agent, else any agent) |
-| 18 | Lead recorded in admin dashboard | 🟡 `enquiries` row + `new_lead` notification; leads module in Stage 5 |
+| 18 | Lead recorded in admin dashboard | ✅ `enquiries` row + `new_lead` notification + admin leads module with full detail |
 | 19 | Access control: unqualified user can't reach results | 🟡 Results gated server-side; legacy public `/listings` API still to remove (Stage 6) |
 
 ---

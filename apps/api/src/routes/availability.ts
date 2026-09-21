@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
-import type { ZodError } from "zod";
 import {
   DEFAULT_SITE_CONTENT,
   REQUIREMENTS_SCHEMAS,
@@ -28,6 +27,8 @@ import { requireAuth } from "../middleware/auth";
 import { findMatches } from "../lib/matching";
 import { runAgent } from "../lib/agentRuns";
 import { notifyLeadRequest, notifyNewLead } from "../agents/leadNotification";
+import { fileUrl } from "../lib/files";
+import { isUniqueViolation, readJson, validationError } from "../lib/validation";
 
 type Env = { Bindings: Bindings; Variables: Variables };
 
@@ -48,24 +49,9 @@ availabilityRoutes.use(
   })
 );
 
-function validationError(error: ZodError) {
-  const issue = error.issues[0];
-  const field = issue?.path.join(".");
-  return {
-    error: {
-      code: "VALIDATION_ERROR",
-      message: issue ? (field ? `${field}: ${issue.message}` : issue.message) : "Invalid request",
-    },
-  };
-}
-
 const notQualified = {
   error: { code: "NOT_QUALIFIED", message: "Complete your availability enquiry to see matched opportunities" },
 };
-
-async function readJson(req: { json: () => Promise<unknown> }): Promise<unknown> {
-  return req.json().catch(() => null);
-}
 
 async function availabilityConfig(db: D1Database): Promise<AvailabilityConfig> {
   const row = await db
@@ -89,11 +75,6 @@ async function completedEnquiry(db: D1Database, enquiryId: string, userId: strin
     .bind(enquiryId, userId)
     .first<Pick<EnquiryRow, "id" | "reference_no" | "user_type" | "stage">>();
   return enquiry?.stage === "completed" ? enquiry : null;
-}
-
-// TODO(stage 6): replace with HMAC-signed, 1-hour URLs once file serving is locked down.
-function fileUrl(requestUrl: string, key: string): string {
-  return `${new URL(requestUrl).origin}/upload/files/${key}`;
 }
 
 // ─── Step 1 + 2: create the enquiry after OTP verification ──────────────────
@@ -251,7 +232,7 @@ availabilityRoutes.put("/enquiries/:id/requirements", async (c) => {
     const [update] = await c.env.DB.batch(statements);
     if (!update?.meta.changes) return c.json(alreadyCompleted, 409);
   } catch (err) {
-    if (err instanceof Error && /UNIQUE/i.test(err.message)) return c.json(alreadyCompleted, 409);
+    if (isUniqueViolation(err)) return c.json(alreadyCompleted, 409);
     throw err;
   }
 
@@ -486,7 +467,7 @@ availabilityRoutes.post("/enquiries/:id/requests", async (c) => {
   try {
     await c.env.DB.batch(statements);
   } catch (err) {
-    if (err instanceof Error && /UNIQUE/i.test(err.message)) {
+    if (isUniqueViolation(err)) {
       return c.json(
         { error: { code: "CONFLICT", message: "You have already sent this request. An agent will be in touch." } },
         409

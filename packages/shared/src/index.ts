@@ -194,63 +194,6 @@ export interface PresignResponse {
 
 // ─── Admin shapes ────────────────────────────────────────────────────────────
 
-export interface AdminVendor {
-  id: string;
-  user_id: string;
-  name: string;
-  mobile: string;
-  vendor_type: VendorType;
-  status: VendorStatus;
-  company_name: string | null;
-  licence_no: string | null;
-  admin_note: string | null;
-  created_at: number;
-  documents: Array<{ id: string; label: string; url: string }>;
-}
-
-export interface AdminListing {
-  id: string;
-  vendor_id: string;
-  vendor_name: string;
-  type: ListingType;
-  title: string;
-  status: ListingStatus;
-  price: number;
-  currency: string;
-  location_text: string;
-  admin_note: string | null;
-  created_at: number;
-}
-
-export interface AdminBooking {
-  id: string;
-  status: BookingStatus;
-  admin_note: string | null;
-  created_at: number;
-  updated_at: number;
-  customer: { id: string; name: string; mobile: string };
-  listing: {
-    id: string;
-    title: string;
-    type: ListingType;
-    location_text: string;
-  };
-  vendor: { id: string; name: string; mobile: string };
-}
-
-export interface AdminReportsResponse {
-  listings: {
-    total: number;
-    approved: number;
-    pending: number;
-    rejected: number;
-    by_type: Record<ListingType, number>;
-  };
-  vendors: { total: number; approved: number; pending: number; rejected: number };
-  customers: { total: number; verified: number };
-  bookings: { total: number; closed: number; pending: number };
-}
-
 export interface AdminNotification {
   id: string;
   type: NotificationType;
@@ -271,3 +214,7 @@ export * from "./content";
 // ─── Availability journey (enquiries, requirements, matches) ────────────────
 
 export * from "./availability";
+
+// ─── Admin dashboard (leads, properties, agents, content, reports) ──────────
+
+export * from "./admin";

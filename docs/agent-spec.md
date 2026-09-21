@@ -35,7 +35,7 @@ All agents run inside the **API Worker** via `waitUntil` — not via Queues or a
 
 ## 2. Lead Notification Agent **[built]** (replaces booking notification)
 
-Code: `apps/api/src/agents/leadNotification.ts` (`notifyNewLead`, `notifyLeadRequest`), run via `runAgent` (`agent_type = notification`, input `{ event, enquiry_id }`, plus `request_id` for `lead_request`). The `lead_request` notification payload is `{ request_id, kind, enquiry_id, reference_no, listing_id, listing_reference_no }`. User-supplied values are HTML-escaped in the email body; the admin lead link is added with the admin leads module (Stage 5).
+Code: `apps/api/src/agents/leadNotification.ts` (`notifyNewLead`, `notifyLeadRequest`), run via `runAgent` (`agent_type = notification`, input `{ event, enquiry_id }`, plus `request_id` for `lead_request`). The `lead_request` notification payload is `{ request_id, kind, enquiry_id, reference_no, listing_id, listing_reference_no }`. User-supplied values are HTML-escaped in the email body. Both email types include an "Open lead in admin" link (`SITE_URL/admin/leads/{enquiry_id}`) when `SITE_URL` is configured.
 
 **Triggers:**
 - `PUT /availability/enquiries/:id/requirements` completes an enquiry → event `new_lead`
@@ -78,7 +78,7 @@ Sends a short Resend email to the enquirer: reference number, "an agent will be 
 
 ---
 
-## 4. CSV Export Agent **[built → rework]**
+## 4. CSV Export Agent **[built]**
 
 **Trigger:** `GET /admin/export` — streamed synchronously; recorded in `agent_runs` for audit.
 
@@ -88,7 +88,7 @@ Sends a short Resend email to the enquirer: reference number, "an agent will be 
 | `query_enquirers` | `users` WHERE `mobile_verified_at IS NOT NULL`, by created or last-login date |
 | `stream_csv` | Rows → CSV `ReadableStream` → Response body |
 
-Columns: see `api-spec.md` → Export. Guard: range ≤ 366 days. (Current code exports legacy `customers` / `owners`.)
+Columns: see `api-spec.md` → Export. Guard: range ≤ 366 days.
 
 ---
 

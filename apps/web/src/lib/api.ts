@@ -1,14 +1,31 @@
 import type {
+  AdminAgent,
+  AdminAgentsResponse,
+  AdminContentItem,
+  AdminContentResponse,
+  AdminLeadDetail,
+  AdminLeadsResponse,
+  AdminNotificationsResponse,
+  AdminPropertiesResponse,
+  AdminPropertyDetail,
+  AdminReportsResponse,
+  AgentInput,
   AgentsResponse,
   CompleteEnquiryResponse,
   ContentAllResponse,
   CreateEnquiryResponse,
   CreateLeadRequestResponse,
+  CreatePropertyResponse,
   EnquiryDetails,
   LeadRequestInput,
+  LeadUpdateInput,
   MatchesResponse,
   OpportunityDetailResponse,
   OtpSendResponse,
+  PropertyInput,
+  RematchResponse,
+  SiteContent,
+  SiteContentKey,
 } from "@momentum/shared";
 
 const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:8787";
@@ -171,58 +188,76 @@ export const api = {
       request<{ shortlists: ListingSummary[] }>("/customer/shortlists", { token }),
   },
   admin: {
-    getVendors: (params: Record<string, string>, token: string) =>
-      request<{ vendors: AdminVendor[]; total: number }>(`/admin/vendors?${new URLSearchParams(params)}`, { token }),
-    getVendor: (id: string, token: string) => request<AdminVendorDetail>(`/admin/vendors/${id}`, { token }),
-    approveVendor: (id: string, token: string) =>
-      request<{ message: string }>(`/admin/vendors/${id}/approve`, { method: "POST", token }),
-    rejectVendor: (id: string, reason: string, token: string) =>
-      request<{ message: string }>(`/admin/vendors/${id}/reject`, {
+    leads: (params: Record<string, string>, token: string) =>
+      request<AdminLeadsResponse>(`/admin/leads?${new URLSearchParams(params)}`, { token }),
+    lead: (id: string, token: string) => request<AdminLeadDetail>(`/admin/leads/${id}`, { token }),
+    updateLead: (id: string, body: LeadUpdateInput, token: string) =>
+      request<AdminLeadDetail>(`/admin/leads/${id}`, { method: "PATCH", body: JSON.stringify(body), token }),
+    rematchLead: (id: string, token: string) =>
+      request<RematchResponse>(`/admin/leads/${id}/rematch`, { method: "POST", token }),
+
+    properties: (params: Record<string, string>, token: string) =>
+      request<AdminPropertiesResponse>(`/admin/properties?${new URLSearchParams(params)}`, { token }),
+    property: (id: string, token: string) => request<AdminPropertyDetail>(`/admin/properties/${id}`, { token }),
+    createProperty: (body: PropertyInput, token: string) =>
+      request<CreatePropertyResponse>("/admin/properties", { method: "POST", body: JSON.stringify(body), token }),
+    updateProperty: (id: string, body: Partial<PropertyInput>, token: string) =>
+      request<AdminPropertyDetail>(`/admin/properties/${id}`, { method: "PATCH", body: JSON.stringify(body), token }),
+    setPropertyAvailability: (id: string, isAvailable: boolean, token: string) =>
+      request<{ id: string; is_available: boolean }>(`/admin/properties/${id}/availability`, {
         method: "POST",
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ is_available: isAvailable }),
         token,
       }),
-    getListings: (params: Record<string, string>, token: string) =>
-      request<{ listings: AdminListing[]; total: number }>(`/admin/listings?${new URLSearchParams(params)}`, { token }),
-    approveListing: (id: string, token: string) =>
-      request<{ message: string }>(`/admin/listings/${id}/approve`, { method: "POST", token }),
-    rejectListing: (id: string, reason: string, token: string) =>
-      request<{ message: string }>(`/admin/listings/${id}/reject`, {
-        method: "POST",
-        body: JSON.stringify({ reason }),
+    archiveProperty: (id: string, token: string) =>
+      request<{ id: string; status: string }>(`/admin/properties/${id}/archive`, { method: "POST", token }),
+
+    agents: (token: string) => request<AdminAgentsResponse>("/admin/agents", { token }),
+    createAgent: (body: AgentInput, token: string) =>
+      request<AdminAgent>("/admin/agents", { method: "POST", body: JSON.stringify(body), token }),
+    updateAgent: (id: string, body: Partial<AgentInput>, token: string) =>
+      request<AdminAgent>(`/admin/agents/${id}`, { method: "PATCH", body: JSON.stringify(body), token }),
+    deleteAgent: (id: string, token: string) =>
+      request<{ ok: true }>(`/admin/agents/${id}`, { method: "DELETE", token }),
+
+    content: (token: string) => request<AdminContentResponse>("/admin/content", { token }),
+    updateContent: <K extends SiteContentKey>(key: K, value: SiteContent[K], token: string) =>
+      request<AdminContentItem<K>>(`/admin/content/${key}`, {
+        method: "PUT",
+        body: JSON.stringify({ value }),
         token,
       }),
-    requestChanges: (id: string, remarks: string, token: string) =>
-      request<{ message: string }>(`/admin/listings/${id}/request-changes`, {
-        method: "POST",
-        body: JSON.stringify({ remarks }),
-        token,
-      }),
-    getBookings: (params: Record<string, string>, token: string) =>
-      request<{ bookings: AdminBooking[]; total: number }>(`/admin/bookings?${new URLSearchParams(params)}`, { token }),
-    updateBooking: (id: string, body: { status?: string; admin_note?: string }, token: string) =>
-      request<{ message: string }>(`/admin/bookings/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(body),
-        token,
-      }),
-    addBookingNote: (id: string, body: string, token: string) =>
-      request<{ message: string }>(`/admin/bookings/${id}/notes`, {
-        method: "POST",
-        body: JSON.stringify({ body }),
-        token,
-      }),
-    getReports: (params: Record<string, string>, token: string) =>
-      request<AdminReports>(`/admin/reports?${new URLSearchParams(params)}`, { token }),
-    getNotifications: (token: string) =>
-      request<{ notifications: AdminNotification[]; unread_count: number }>("/admin/notifications", { token }),
+
+    reports: (params: Record<string, string>, token: string) =>
+      request<AdminReportsResponse>(`/admin/reports?${new URLSearchParams(params)}`, { token }),
+    notifications: (token: string) => request<AdminNotificationsResponse>("/admin/notifications", { token }),
     markNotificationRead: (id: string, token: string) =>
-      request<{ message: string }>(`/admin/notifications/${id}/read`, { method: "PUT", token }),
+      request<{ ok: true }>(`/admin/notifications/${id}/read`, { method: "POST", token }),
+    markAllNotificationsRead: (token: string) =>
+      request<{ ok: true }>("/admin/notifications/read-all", { method: "POST", token }),
+
+    /** CSV download: returns the file as a Blob (the response is not JSON). */
+    exportCsv: async (params: Record<string, string>, token: string): Promise<Blob> => {
+      const res = await fetch(`${API_BASE}/admin/export?${new URLSearchParams(params)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+        throw new ApiError(err?.error?.message ?? res.statusText, res.status, err?.error?.code ?? null);
+      }
+      return res.blob();
+    },
   },
   upload: {
-    uploadFile: async (file: File, context: string, token: string): Promise<{ key: string }> => {
+    uploadFile: async (
+      file: File,
+      context: string,
+      token: string,
+      fields: Record<string, string> = {}
+    ): Promise<{ key: string }> => {
       const form = new FormData();
       form.append("context", context);
+      for (const [name, value] of Object.entries(fields)) form.append(name, value);
       form.append("file", file);
       const res = await fetch(`${API_BASE}/upload/file`, {
         method: "POST",
@@ -348,80 +383,5 @@ export interface CustomerBooking {
   listing_type: string;
   listing_location: string;
   thumbnail: string | null;
-  created_at: number;
-}
-
-export interface AdminVendor {
-  id: string;
-  user_id: string;
-  name: string;
-  mobile: string;
-  vendor_type: string;
-  status: string;
-  company_name: string | null;
-  created_at: number;
-}
-
-export interface AdminVendorDetail extends AdminVendor {
-  licence_no: string | null;
-  admin_note: string | null;
-  documents: Array<{ id: string; label: string; url: string }>;
-}
-
-export interface AdminListing {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
-  price: number;
-  currency: string;
-  location_text: string;
-  vendor_name: string;
-  admin_note: string | null;
-  created_at: number;
-}
-
-export interface AdminBooking {
-  id: string;
-  status: string;
-  admin_note: string | null;
-  created_at: number;
-  customer: {
-    id: string;
-    name: string;
-    mobile: string;
-    email: string | null;
-    alt_mobile: string | null;
-  };
-  listing: {
-    id: string;
-    title: string;
-    type: string;
-    location_text: string;
-    price: number;
-    currency: string;
-    size_sqft: number | null;
-    bedrooms: number | null;
-    bathrooms: number | null;
-    total_capacity: number | null;
-    num_rooms: number | null;
-  };
-  vendor: { id: string; name: string; mobile: string };
-  notes?: Array<{ id: string; body: string; created_at: number }>;
-}
-
-export interface AdminReports {
-  listings_by_status: Record<string, number>;
-  vendors_by_status: Record<string, number>;
-  customers_total: number;
-  bookings_by_status: Record<string, number>;
-  listings_by_type: Record<string, number>;
-}
-
-export interface AdminNotification {
-  id: string;
-  type: string;
-  payload: Record<string, unknown>;
-  read_at: number | null;
   created_at: number;
 }

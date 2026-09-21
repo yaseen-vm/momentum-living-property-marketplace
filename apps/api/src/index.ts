@@ -14,6 +14,10 @@ import { customerShortlistRoutes } from "./routes/customer/shortlists";
 import { adminVendorRoutes } from "./routes/admin/vendors";
 import { adminListingRoutes } from "./routes/admin/listings";
 import { adminBookingRoutes } from "./routes/admin/bookings";
+import { adminLeadRoutes } from "./routes/admin/leads";
+import { adminPropertyRoutes } from "./routes/admin/properties";
+import { adminAgentRoutes } from "./routes/admin/agents";
+import { adminContentRoutes } from "./routes/admin/content";
 import { adminExportRoutes } from "./routes/admin/export";
 import { adminReportRoutes } from "./routes/admin/reports";
 import { adminNotificationRoutes } from "./routes/admin/notifications";
@@ -52,12 +56,19 @@ app.route("/customer", customerProfileRoutes);
 app.route("/customer/bookings", customerBookingRoutes);
 app.route("/customer/shortlist", customerShortlistRoutes);
 
-app.route("/admin/vendors", adminVendorRoutes);
-app.route("/admin/listings", adminListingRoutes);
-app.route("/admin/bookings", adminBookingRoutes);
+app.route("/admin/leads", adminLeadRoutes);
+app.route("/admin/properties", adminPropertyRoutes);
+app.route("/admin/agents", adminAgentRoutes);
+app.route("/admin/content", adminContentRoutes);
 app.route("/admin/export", adminExportRoutes);
 app.route("/admin/reports", adminReportRoutes);
 app.route("/admin/notifications", adminNotificationRoutes);
+
+// Legacy admin queues (vendor verification, listing approval, bookings): no longer in the
+// admin UI; removed with the vendor portal after client confirmation.
+app.route("/admin/vendors", adminVendorRoutes);
+app.route("/admin/listings", adminListingRoutes);
+app.route("/admin/bookings", adminBookingRoutes);
 
 app.route("/upload", uploadRoutes);
 

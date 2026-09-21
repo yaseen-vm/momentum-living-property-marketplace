@@ -1,10 +1,13 @@
 import { Hono } from "hono";
+import type { AdminNotificationsResponse } from "@momentum/shared";
 import type { Bindings, Variables } from "../../types";
 import { requireAuth } from "../../middleware/auth";
 
 export const adminNotificationRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-adminNotificationRoutes.get("/", requireAuth(["admin"]), async (c) => {
+adminNotificationRoutes.use("*", requireAuth(["admin"]));
+
+adminNotificationRoutes.get("/", async (c) => {
   const { unread } = c.req.query();
 
   const where = unread === "true" ? "WHERE read_at IS NULL" : "";
@@ -26,10 +29,15 @@ adminNotificationRoutes.get("/", requireAuth(["admin"]), async (c) => {
       ...r,
       payload: JSON.parse(r.payload) as Record<string, unknown>,
     })),
-  });
+  } as AdminNotificationsResponse);
 });
 
-adminNotificationRoutes.post("/:id/read", requireAuth(["admin"]), async (c) => {
+adminNotificationRoutes.post("/read-all", async (c) => {
+  await c.env.DB.prepare("UPDATE admin_notifications SET read_at = ? WHERE read_at IS NULL").bind(Date.now()).run();
+  return c.json({ ok: true });
+});
+
+adminNotificationRoutes.post("/:id/read", async (c) => {
   const { id } = c.req.param();
   await c.env.DB.prepare("UPDATE admin_notifications SET read_at = ? WHERE id = ?")
     .bind(Date.now(), id)
