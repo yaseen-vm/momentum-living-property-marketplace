@@ -1,10 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-white text-charcoal-800 antialiased font-sans;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply text-navy-900;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-gold-400 ring-offset-2;
+  }
+}
+
+/* Corporate design system: shared by all public pages (client spec §2). */
+@layer components {
+  .container-site {
+    @apply mx-auto w-full max-w-site px-4 sm:px-6 lg:px-8;
+  }
+
+  .section {
+    @apply py-16 md:py-24;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-eyebrow text-gold-600;
+  }
+
+  .heading-1 {
+    @apply font-serif text-4xl leading-[1.1] md:text-5xl lg:text-6xl;
+  }
+
+  .heading-2 {
+    @apply font-serif text-3xl leading-tight md:text-4xl;
+  }
+
+  .heading-3 {
+    @apply font-serif text-xl leading-snug md:text-2xl;
+  }
+
+  .lead {
+    @apply text-base leading-relaxed text-charcoal-500 md:text-lg;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-6 py-3 text-sm font-semibold transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply btn bg-navy-800 text-white hover:bg-navy-900;
+  }
+
+  .btn-secondary {
+    @apply btn border border-navy-800 text-navy-800 hover:bg-navy-50;
+  }
+
+  .btn-on-dark {
+    @apply btn border border-white/30 text-white hover:bg-white/10;
+  }
+
+  /* AVAILABILITY: the single, visually prominent route into inventory. */
+  .btn-availability {
+    @apply btn bg-gold-400 uppercase tracking-[0.14em] text-navy-950 hover:bg-gold-300;
+  }
+
+  .card {
+    @apply rounded-xl border border-charcoal-100 bg-white p-6 shadow-card transition-shadow duration-300 hover:shadow-card-hover md:p-8;
+  }
+
+  .gold-rule {
+    @apply block h-px w-12 bg-gold-400;
   }
 }

@@ -1,6 +1,6 @@
 # Implementation Status: Client Build Spec vs Current Code
 
-**Last reviewed:** 2026-09-21 (branch `feat/ui-updates`, commit `f6cee72`)
+**Last reviewed:** 2026-09-21 (branch `feat/stage-1-foundation`)
 **Compared:** the client's *Build Specification: Momentum Living* against the current repo (docs + `apps/*` code)
 
 The current code was built for the **original marketplace scope** in quotation LNG-2026-WD-003. In that model, vendors self-register and post listings, and customers log in with OTP and browse everything. The client's spec describes a **different product**: a corporate site with no inventory, plus a gated **Availability** qualification journey that produces leads. This file lists, item by item, what is already done, what can be reused, what must be reworked, what is new and what is legacy.
@@ -25,9 +25,9 @@ The current code was built for the **original marketplace scope** in quotation L
 | Platform foundation (monorepo, CI, D1, Workers, Pages) | ✅ | Reusable as-is |
 | SMS OTP backend (§15) | ✅ / ⚠️ | Solid. Dev fallback code needs environment gating |
 | Admin shell + notifications (§21) | 🟡 | Layout reusable; modules need retargeting |
-| Branding & design system (§2) | 🔁 | Light/blue-grey theme, "Commercial Real Estate Dubai" positioning |
-| Global navigation & footer (§3, §25) | 🔁 | Wrong items, links go to inventory |
-| Home page (§4–6) | 🔁 | Shows inventory CTAs, invented facts |
+| Branding & design system (§2) | ✅ | Navy/white/charcoal/gold tokens, wordmark with LABOURCAMPS.COM (Stage 1) |
+| Global navigation & footer (§3, §25) | ✅ / 🟡 | Built; footer contact reads placeholders until `site_content` lands |
+| Home page (§4–6) | 🟡 | Spec hero + short about block; no inventory or invented facts. Why Choose cards pending |
 | About, MD, MD Note, Agents, Why Us, Contact, Privacy, Terms (§7–10, §22) | ⬜ | None exist |
 | Chat With an Agent (§11) | ⬜ | |
 | Availability wizard, steps 1–4 (§12–17) | ⬜ | Only a plain OTP login page exists |
@@ -60,21 +60,22 @@ The current code was built for the **original marketplace scope** in quotation L
 
 | Item | Spec | Status | Current state | What's needed |
 |------|------|--------|---------------|---------------|
-| Brand: MOMENTUM LIVING + LABOURCAMPS.COM | §2, notes | 🔁 | "Momentum Living Real Estate L.L.C: Commercial Real Estate Solutions in Dubai"; no LabourCamps.com | Rebrand; labour-accommodation positioning |
-| Palette navy/white/charcoal/gold | §2 | 🔁 | White + `#A6C0D2` blue-grey | New Tailwind tokens, typography, button/card styles |
-| Global nav (7 items + AVAILABILITY) | §3 | 🔁 | Solutions · How It Works · List Property · Get in Touch | New `SiteHeader` with hamburger on mobile |
-| Footer | §25 | 🔁 | Links to `/listings?type=…`, vendor login/register/dashboard, "Sign In" | New `SiteFooter`, data from `site_content.company` |
-| Page title/meta | §24 | ⬜ | `index.html` title "Momentum Living — Verified Properties" | Per-route helmet |
+| Brand: MOMENTUM LIVING + LABOURCAMPS.COM | §2, notes | ✅ | `components/site/BrandLogo.tsx`: wordmark + LABOURCAMPS.COM secondary line; labour-accommodation positioning | — |
+| Palette navy/white/charcoal/gold | §2 | ✅ | `tailwind.config.ts`: `navy` (aliased as `primary`), `charcoal`, `gold` scales; `index.css`: `.btn-*`, `.card`, `.heading-*`, `.eyebrow`, `.container-site` | Older screens (login, admin, vendor) still use hard-coded `#1D3B53`; restyle when each is reworked |
+| Global nav (7 items + AVAILABILITY) | §3 | ✅ | `components/site/SiteHeader.tsx`: 6 links + gold AVAILABILITY button, hamburger below `xl`; wrapped by `SiteLayout` | — |
+| Footer | §25 | 🟡 | `components/site/SiteFooter.tsx`: tagline, nav, contact, legal, socials, © line. Placeholders render as text, never as `tel:`/`mailto:` links | Read `site_content.company` instead of `COMPANY_PLACEHOLDER` (Stage 2) |
+| Page title/meta | §24 | 🟡 | `lib/usePageMeta.ts`: per-route title, description, `noindex`; `index.html` default title/description | react-helmet-async + prerender in the SEO stage |
+| Routes for pending pages | §3 | 🟡 | `/about`, `/managing-director(/note)`, `/agents`, `/why-choose-us`, `/contact`, `/privacy`, `/terms`, `/availability` render `pages/site/PagePending.tsx` (`noindex`) | Replace with real pages (Stages 2–3) |
 
 ## Stage 2: Corporate Pages
 
 | Item | Spec | Status | Current state | What's needed |
 |------|------|--------|---------------|---------------|
-| Home hero (headline, CTAs, AVAILABILITY) | §4 | 🔁 | Different headline; "Browse" CTAs to `/listings` | Rewrite `Landing.tsx` to spec copy |
-| Home: no inventory | §4, §27 | ⚠️🔁 | Category cards "Browse Accommodation / Warehouses / Land" → `/listings?type=…` | Remove all inventory links |
-| Home: about company section | §5 | ⬜ | | New section + "Discover Momentum Living" CTA |
+| Home hero (headline, CTAs, AVAILABILITY) | §4 | ✅ | `Landing.tsx`: spec headline/text, Learn About / Speak to an Agent, separate AVAILABILITY button | — |
+| Home: no inventory | §4, §27 | ✅ | Category cards, marketplace and "Start Your Journey" links removed | — |
+| Home: about company section | §5 | 🟡 | Short "Who we are" block + Discover Momentum Living CTA | Full copy from `site_content.home` |
 | Why Choose cards (8) | §6 | ⬜ | "How the Matching Works" section instead | New cards from `site_content.why_choose_us` |
-| Invented facts removed | §30 | ⚠️ | `hello@momentumliving.ae`, `tel:+971`, "registered with Dubai DET", "Brokerage — Active" | Replace with `[COMPANY EMAIL]`-style placeholders from CMS |
+| Invented facts removed | §30 | ✅ | Licence banner, DET claims, email and phone removed; footer uses `[COMPANY EMAIL]`-style placeholders | Source from CMS (Stage 2) |
 | About Us page | §10 | ⬜ | | `/about`, 6 sections + prominent contact block |
 | Managing Director page | §7 | ⬜ | | `/managing-director` from `site_content.md_profile` |
 | Note from MD | §8 | ⬜ | | `/managing-director/note` from `site_content.md_note` |
@@ -197,14 +198,14 @@ The original quotation was ₹ 80,000 for 8 working days and included no SEO. Pa
 
 | # | Check | Today |
 |---|-------|-------|
-| 1 | Visitor lands on homepage, sees corporate info | 🟡 Commercial-brokerage copy, not labour-accommodation corporate content |
-| 2 | Visitor does **not** see available properties | ❌ Category "Browse" cards link to inventory |
+| 1 | Visitor lands on homepage, sees corporate info | 🟡 Labour-accommodation hero + intro; full sections pending |
+| 2 | Visitor does **not** see available properties | ✅ No inventory links on corporate pages or nav/footer |
 | 3 | Can read About Us | ❌ |
 | 4 | Can read about the Managing Director | ❌ |
 | 5 | Can read the MD's note | ❌ |
 | 6 | Can see the agents | ❌ |
 | 7 | Can contact/chat with an agent | 🟡 mailto/tel only, with invented values |
-| 8 | Clicks AVAILABILITY | ❌ No such button |
+| 8 | Clicks AVAILABILITY | 🟡 Button on every public page; leads to a holding page until Stage 3 |
 | 9 | Selects Tenant / Landlord / Management Company | ❌ |
 | 10 | Enters required details | ❌ |
 | 11 | Verifies mobile by OTP | ✅ Backend works (UI needs moving into the wizard) |
