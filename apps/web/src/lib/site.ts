@@ -1,5 +1,3 @@
-import type { CompanyContent } from "@momentum/shared";
-
 export const BRAND = {
   name: "Momentum Living",
   domain: "LabourCamps.com",
@@ -22,22 +20,6 @@ export const LEGAL_ITEMS = [
 ] as const;
 
 export const AVAILABILITY_PATH = "/availability";
-
-/**
- * Placeholder company details (spec §30: never invent contact data).
- * Replaced by `GET /content/company` once the `site_content` CMS lands (Stage 2).
- */
-export const COMPANY_PLACEHOLDER: CompanyContent = {
-  phone: "[COMPANY PHONE]",
-  whatsapp: "[WHATSAPP NUMBER]",
-  email: "[COMPANY EMAIL]",
-  general_email: "[EMAIL]",
-  sales_email: "[SALES EMAIL]",
-  management_email: "[MANAGEMENT EMAIL]",
-  address: "[OFFICE ADDRESS]",
-  working_hours: "[WORKING HOURS]",
-  socials: { linkedin: "", instagram: "", other: [] },
-};
 
 /** True for unfilled CMS values such as `[COMPANY PHONE]`: render as text, never as a link. */
 export function isPlaceholder(value: string | null | undefined): boolean {

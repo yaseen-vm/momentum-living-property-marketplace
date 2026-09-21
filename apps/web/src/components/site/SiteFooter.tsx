@@ -2,23 +2,19 @@ import { Link } from "react-router-dom";
 import { Clock, Linkedin, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
-import {
-  AVAILABILITY_PATH,
-  BRAND,
-  COMPANY_PLACEHOLDER,
-  LEGAL_ITEMS,
-  NAV_ITEMS,
-  isPlaceholder,
-} from "../../lib/site";
+import { useContent } from "../../lib/content";
+import { externalHref, mailHref, telHref, whatsappHref } from "../../lib/contact";
+import { AVAILABILITY_PATH, BRAND, LEGAL_ITEMS, NAV_ITEMS } from "../../lib/site";
 
 interface ContactLineProps {
   icon: LucideIcon;
   value: string;
-  href: string;
+  href: string | null;
+  external?: boolean;
 }
 
 /** Placeholders render as plain text so no fake tel:/mailto: link is ever produced. */
-function ContactLine({ icon: Icon, value, href }: ContactLineProps) {
+function ContactLine({ icon: Icon, value, href, external }: ContactLineProps) {
   const content = (
     <>
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-gold-400" aria-hidden />
@@ -27,24 +23,27 @@ function ContactLine({ icon: Icon, value, href }: ContactLineProps) {
   );
   return (
     <li>
-      {isPlaceholder(value) ? (
-        <span className="flex items-start gap-3">{content}</span>
-      ) : (
-        <a href={href} className="flex items-start gap-3 transition-colors hover:text-white">
+      {href ? (
+        <a
+          href={href}
+          {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+          className="flex items-start gap-3 transition-colors hover:text-white"
+        >
           {content}
         </a>
+      ) : (
+        <span className="flex items-start gap-3">{content}</span>
       )}
     </li>
   );
 }
 
 export function SiteFooter() {
-  const company = COMPANY_PLACEHOLDER;
-  const whatsappDigits = company.whatsapp.replace(/\D/g, "");
+  const { data: company, isPending } = useContent("company");
   const socials = [
-    { label: "LinkedIn", url: company.socials.linkedin, icon: Linkedin },
-    { label: "Instagram", url: company.socials.instagram, icon: Instagram },
-  ].filter((s) => !isPlaceholder(s.url));
+    { label: "LinkedIn", url: externalHref(company.socials.linkedin), icon: Linkedin },
+    { label: "Instagram", url: externalHref(company.socials.instagram), icon: Instagram },
+  ].filter((s): s is typeof s & { url: string } => s.url !== null);
 
   return (
     <footer className="bg-navy-950 text-navy-200">
@@ -73,11 +72,12 @@ export function SiteFooter() {
 
           <div className="md:col-span-4">
             <h2 className="eyebrow mb-5 text-gold-400">Contact</h2>
-            <ul className="space-y-3 text-sm">
-              <ContactLine icon={Phone} value={company.phone} href={`tel:${company.phone.replace(/\s/g, "")}`} />
-              <ContactLine icon={MessageCircle} value={company.whatsapp} href={`https://wa.me/${whatsappDigits}`} />
-              <ContactLine icon={Mail} value={company.email} href={`mailto:${company.email}`} />
-              <ContactLine icon={MapPin} value={company.address} href="/contact" />
+            {/* Hidden until loaded so placeholders never flash in place of real details. */}
+            <ul className={`space-y-3 text-sm transition-opacity ${isPending ? "opacity-0" : "opacity-100"}`}>
+              <ContactLine icon={Phone} value={company.phone} href={telHref(company.phone)} />
+              <ContactLine icon={MessageCircle} value={company.whatsapp} href={whatsappHref(company.whatsapp)} external />
+              <ContactLine icon={Mail} value={company.email} href={mailHref(company.email)} />
+              <ContactLine icon={MapPin} value={company.address} href={null} />
               <li className="flex items-start gap-3">
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 text-gold-400" aria-hidden />
                 <span>{company.working_hours}</span>

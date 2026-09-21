@@ -262,17 +262,6 @@ export interface AdminNotificationsResponse {
   items: AdminNotification[];
 }
 
-// ─── Corporate content (site_content) ────────────────────────────────────────
+// ─── Corporate content (site_content) and public agents ─────────────────────
 
-/** `site_content.company`: admin-editable company details (spec §10, §25). */
-export interface CompanyContent {
-  phone: string;
-  whatsapp: string;
-  email: string;
-  general_email: string;
-  sales_email: string;
-  management_email: string;
-  address: string;
-  working_hours: string;
-  socials: { linkedin: string; instagram: string; other: { label: string; url: string }[] };
-}
+export * from "./content";

@@ -2,14 +2,18 @@ import { Link } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ArrowRight } from "lucide-react";
+import { ContactCta } from "../components/site/ContactCta";
+import { useContent } from "../lib/content";
+import { featureIcon } from "../lib/featureIcons";
 import { AVAILABILITY_PATH, BRAND } from "../lib/site";
 import { usePageMeta } from "../lib/usePageMeta";
 
 // Strict no-listing rule (spec §27): this page must never link to inventory,
 // show prices/counts or use "browse" CTAs. The only way in is AVAILABILITY.
-// The about and Why Choose sections are added with the corporate pages (Stage 2).
 export default function Landing() {
   const heroRef = useRef<HTMLElement>(null);
+  const { data: home } = useContent("home");
+  const { data: whyChoose } = useContent("why_choose_us");
 
   usePageMeta({
     description:
@@ -67,26 +71,65 @@ export default function Landing() {
       </section>
 
       <section className="section">
-        <div className="container-site grid gap-10 md:grid-cols-12 md:items-center">
+        <div className="container-site grid gap-12 md:grid-cols-12">
           <div className="md:col-span-7">
-            <span className="eyebrow">Who we are</span>
+            <span className="eyebrow">About the company</span>
             <h2 className="heading-2 mt-4">A specialist in labour accommodation</h2>
             <span className="gold-rule mt-6" aria-hidden />
-            <p className="lead mt-6">
-              Momentum Living works with property owners, landlords, tenants, operators, management
-              companies, investors, corporate clients and agents across the labour accommodation market.
-            </p>
+            <p className="lead mt-6">{home.about_intro}</p>
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <Link to="/about" className="btn-primary">
+                Discover Momentum Living <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link to="/contact" className="btn-secondary">
+                Contact Us
+              </Link>
+            </div>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row md:col-span-5 md:justify-end">
-            <Link to="/about" className="btn-primary">
-              Discover Momentum Living <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link to="/contact" className="btn-secondary">
-              Contact Us
+          <div className="md:col-span-5">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-charcoal-400">Who we work with</h3>
+            <ul className="mt-5 flex flex-wrap gap-2">
+              {home.audiences.map((audience) => (
+                <li
+                  key={audience}
+                  className="rounded-full border border-charcoal-100 bg-navy-50/60 px-4 py-2 text-sm font-medium text-navy-800"
+                >
+                  {audience}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="section bg-navy-50/60">
+        <div className="container-site">
+          <div className="max-w-2xl">
+            <span className="eyebrow">Why Momentum Living</span>
+            <h2 className="heading-2 mt-4">Why Choose Momentum Living</h2>
+            <span className="gold-rule mt-6" aria-hidden />
+          </div>
+          <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {whyChoose.features.map(({ title, summary, icon }) => {
+              const Icon = featureIcon(icon);
+              return (
+                <li key={title} className="card">
+                  <Icon className="h-7 w-7 text-gold-500" aria-hidden />
+                  <h3 className="mt-5 font-serif text-lg text-navy-900">{title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-charcoal-500">{summary}</p>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-12">
+            <Link to="/why-choose-us" className="btn-secondary">
+              Learn More <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
       </section>
+
+      <ContactCta />
     </>
   );
 }

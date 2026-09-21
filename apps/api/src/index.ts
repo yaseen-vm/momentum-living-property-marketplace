@@ -3,6 +3,8 @@ import { cors } from "hono/cors";
 import type { Bindings, Variables } from "./types";
 import { authRoutes } from "./routes/auth";
 import { listingRoutes } from "./routes/listings";
+import { contentRoutes } from "./routes/content";
+import { agentRoutes } from "./routes/agents";
 import { vendorProfileRoutes } from "./routes/vendor/profile";
 import { vendorListingRoutes } from "./routes/vendor/listings";
 import { customerProfileRoutes } from "./routes/customer/profile";
@@ -36,6 +38,9 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 
 app.route("/auth", authRoutes);
 app.route("/listings", listingRoutes);
+
+app.route("/content", contentRoutes);
+app.route("/agents", agentRoutes);
 
 app.route("/vendor", vendorProfileRoutes);
 app.route("/vendor/listings", vendorListingRoutes);
