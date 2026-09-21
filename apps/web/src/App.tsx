@@ -12,6 +12,7 @@ import ContactPage from "./pages/site/ContactPage";
 import LegalPage from "./pages/site/LegalPage";
 import AvailabilityPage from "./pages/availability/AvailabilityPage";
 import MatchesPage from "./pages/availability/MatchesPage";
+import OpportunityDetailPage from "./pages/availability/OpportunityDetailPage";
 import OtpLoginPage from "./pages/auth/OtpLoginPage";
 import VendorRegisterPage from "./pages/vendor/VendorRegisterPage";
 import VendorPendingPage from "./pages/vendor/VendorPendingPage";
@@ -43,6 +44,7 @@ export default function App() {
           {/* Availability journey: the only route into inventory (spec §1, §12). */}
           <Route path="/availability" element={<AvailabilityPage />} />
           <Route path="/availability/results/:enquiryId" element={<MatchesPage />} />
+          <Route path="/availability/opportunities/:id" element={<OpportunityDetailPage />} />
         </Route>
 
         {/* Sign-in (admin uses /login). Not linked from the corporate site. */}

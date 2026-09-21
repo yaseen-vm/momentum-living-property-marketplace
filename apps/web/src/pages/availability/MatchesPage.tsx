@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, MessageCircle, SearchCheck } from "lucide-react";
 import type { UserType } from "@momentum/shared";
 import { OpportunityCard } from "../../components/availability/OpportunityCard";
+import { RequestDialog } from "../../components/availability/RequestDialog";
+import type { RequestTarget } from "../../components/availability/RequestDialog";
 import { WizardProgress } from "../../components/availability/WizardProgress";
 import { useChatWithAgent } from "../../components/site/ChatWithAgent";
 import { PageSpinner } from "../../components/ui/Spinner";
@@ -29,6 +32,7 @@ export default function MatchesPage() {
   const { enquiryId = "" } = useParams();
   const { token, role } = useAuthStore();
   const { openChat } = useChatWithAgent();
+  const [requestTarget, setRequestTarget] = useState<RequestTarget | null>(null);
 
   const { data, isPending, error } = useQuery({
     queryKey: ["availability-matches", enquiryId],
@@ -84,7 +88,7 @@ export default function MatchesPage() {
             <ul className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
               {data.matches.map((m) => (
                 <li key={m.id}>
-                  <OpportunityCard opportunity={m} />
+                  <OpportunityCard opportunity={m} enquiryId={enquiryId} onRequest={setRequestTarget} />
                 </li>
               ))}
             </ul>
@@ -100,6 +104,8 @@ export default function MatchesPage() {
           )}
         </div>
       </section>
+
+      <RequestDialog enquiryId={enquiryId} target={requestTarget} onClose={() => setRequestTarget(null)} />
     </>
   );
 }

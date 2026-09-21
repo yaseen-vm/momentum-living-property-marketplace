@@ -33,9 +33,9 @@ All agents run inside the **API Worker** via `waitUntil` — not via Queues or a
 
 ---
 
-## 2. Lead Notification Agent **[`new_lead` built; `lead_request` new]** (replaces booking notification)
+## 2. Lead Notification Agent **[built]** (replaces booking notification)
 
-Code: `apps/api/src/agents/leadNotification.ts`, run via `runAgent` (`agent_type = notification`, input `{ event, enquiry_id }`). User-supplied values are HTML-escaped in the email body; the admin lead link is added with the admin leads module (Stage 5).
+Code: `apps/api/src/agents/leadNotification.ts` (`notifyNewLead`, `notifyLeadRequest`), run via `runAgent` (`agent_type = notification`, input `{ event, enquiry_id }`, plus `request_id` for `lead_request`). The `lead_request` notification payload is `{ request_id, kind, enquiry_id, reference_no, listing_id, listing_reference_no }`. User-supplied values are HTML-escaped in the email body; the admin lead link is added with the admin leads module (Stage 5).
 
 **Triggers:**
 - `PUT /availability/enquiries/:id/requirements` completes an enquiry → event `new_lead`

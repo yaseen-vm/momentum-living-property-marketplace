@@ -1,6 +1,6 @@
 # Implementation Status: Client Build Spec vs Current Code
 
-**Last reviewed:** 2026-09-21 (branch `feat/stage-3-availability-workflow`)
+**Last reviewed:** 2026-09-21 (branch `feat/stage-4-details-contact`)
 **Compared:** the client's *Build Specification: Momentum Living* against the current repo (docs + `apps/*` code)
 
 The current code was built for the **original marketplace scope** in quotation LNG-2026-WD-003. In that model, vendors self-register and post listings, and customers log in with OTP and browse everything. The client's spec describes a **different product**: a corporate site with no inventory, plus a gated **Availability** qualification journey that produces leads. This file lists, item by item, what is already done, what can be reused, what must be reworked, what is new and what is legacy.
@@ -32,14 +32,14 @@ The current code was built for the **original marketplace scope** in quotation L
 | Chat With an Agent (§11) | 🟡 | Picker built (agent → WhatsApp / phone / email). Website chat hidden until a provider is chosen |
 | Availability wizard, steps 1–4 (§12–17) | ✅ | `/availability` wizard: type → details + consent → OTP → requirements → results (Stage 3) |
 | Matching engine (§17) | ✅ | Rule-based scorer on an indexed candidate query; `lead_matches` snapshot (Stage 3) |
-| Opportunity cards + detail (§18–19) | 🟡 | Gated result cards with Chat With Agent (Stage 3); detail page, View Details and Request Information pending (Stage 4) |
-| Lead management (§20) | 🟡 | `enquiries` = leads with 8 statuses, `new_lead` dashboard notification + email (Stage 3); admin leads module pending (Stage 5) |
+| Opportunity cards + detail (§18–19) | ✅ | Gated cards with View Details / Request Information / Chat With Agent; gated detail page with Request Viewing / More Information (Stage 4) |
+| Lead management (§20) | 🟡 | `enquiries` = leads with 8 statuses; `lead_requests` attached to leads; `new_lead` + `lead_request` dashboard notifications + email (Stages 3–4); admin leads module pending (Stage 5) |
 | Admin: properties, agents, leads, content (§21) | ⬜ / 🔁 | Only vendor/listing approval queues and bookings exist |
 | Security & privacy (§22) | 🟡 / ⚠️ | Availability API gated + Zod-validated; 2 access-control holes left (public `/listings` API, unsigned file serving), no headers |
 | SEO (§24) | ⬜ | One static `<title>`; excluded from original quote |
 | Vendor portal, shortlists, public browse | 🗄️ | Not in spec |
 
-**Rough completion against the client spec: about 50 %** (foundation, OTP, admin shell, corporate site, availability journey). Most of the product-facing work is still to be done.
+**Rough completion against the client spec: about 60 %** (foundation, OTP, admin shell, corporate site, availability journey, opportunity detail and requests). Most of the product-facing work is still to be done.
 
 ---
 
@@ -49,7 +49,7 @@ The current code was built for the **original marketplace scope** in quotation L
 |------|--------|---------------|---------------|
 | pnpm monorepo, workspaces | ✅ | `apps/web`, `apps/api`, `apps/ingestion`, `packages/shared` | — |
 | Wrangler config, D1/KV/R2 bindings | ✅ | `apps/api/wrangler.toml` | Add final domain routes |
-| D1 migrations | 🟡 | `0001_init` … `0004_site_content_agents`, `0005_availability` | New migrations (see Stage 4–5) |
+| D1 migrations | 🟡 | `0001_init` … `0004_site_content_agents`, `0005_availability`, `0006_lead_requests` | New migrations (see Stage 5) |
 | CI | 🟡 | `.github/workflows/ci.yml`: typecheck + deploy | Add `pnpm lint`, `pnpm audit` |
 | JWT HS256 | ✅ | `apps/api/src/lib/jwt.ts`, `middleware/auth.ts` | Remove `vendor` role usage later |
 | Shared types | 🟡 | `packages/shared/src/index.ts`; content + agent types in `content.ts`; enquiry/lead types, location + facility catalogues and Zod schemas in `availability.ts` | Legacy `ListingType` (`property\|plot\|room`) still used by old screens; new code uses `PropertyType` (`labour_camp\|warehouse\|land`) |
@@ -83,7 +83,7 @@ The current code was built for the **original marketplace scope** in quotation L
 | Why Choose Us page | §6 | ✅ | `WhyChooseUsPage.tsx`: intro + 8 expanded cards | — |
 | Contact page | §10 | ✅ | `ContactPage.tsx`: all 8 fields, Chat With an Agent, Start an Enquiry | — |
 | Privacy Policy, Terms | §22 | 🟡 | `LegalPage.tsx` renders `legal_privacy` / `legal_terms` as text (never HTML) | Client to supply legal wording |
-| Chat With an Agent picker | §11 | 🟡 | `components/site/ChatWithAgent.tsx`: provider in `SiteLayout`; modal: any agent / named agent → WhatsApp (prefilled) / phone / email; unavailable channels shown disabled | Website chat once a provider is chosen (open question 7); cards/detail in Stage 4 |
+| Chat With an Agent picker | §11 | 🟡 | `components/site/ChatWithAgent.tsx`: provider in `SiteLayout`; modal: any agent / named agent → WhatsApp (prefilled) / phone / email; unavailable channels shown disabled; opened from cards and detail with the listing's agent preselected (Stage 4) | Website chat once a provider is chosen (open question 7) |
 | `site_content` table + `GET /content` | §21, §30 | ✅ | Migration 0004 + placeholder seed; `GET /content`, `GET /content/:key` (5-min cache) | Admin editor (Stage 5) |
 | `agents` table + `GET /agents` | §9 | ✅ | Migration 0004 + 3 placeholder profiles; `GET /agents` covered by `(is_active, display_order)` | Admin CRUD (Stage 5) |
 
@@ -102,7 +102,7 @@ The current code was built for the **original marketplace scope** in quotation L
 | Step 3: dynamic requirements per user type | §16 | ✅ | `RequirementsStep.tsx` renders `requirementFields.ts` per type; validated by the shared Zod schemas (`packages/shared/src/availability.ts`) in the form and the API | Landlord supporting-document upload (needs an `enquiry_doc` upload context) |
 | `enquiries` table + endpoints | §20 | ✅ | Migration 0005; `routes/availability.ts`: `POST` / `GET /availability/enquiries`, `GET …/:id`, `PUT …/:id/requirements`; sequential `LD-YYYY-NNNNNN` reference; 5 enquiries / user / hour | — |
 | Matching engine | §17 | ✅ | `lib/matching.ts`: candidate query on `idx_listings_matching`, score 0–100 (capacity, budget, dates, type, facilities), top 20 with score ≥ 40 → `lead_matches` | A listing matches a location filter only when its `location_slug` is from the shared catalogue (admin form, Stage 5) |
-| Results page (Matched Opportunities) + empty state | §17 | ✅ | `MatchesPage.tsx` + `OpportunityCard.tsx`; empty state with Chat With an Agent; `noindex` | View Details / Request Information buttons (Stage 4) |
+| Results page (Matched Opportunities) + empty state | §17 | ✅ | `MatchesPage.tsx` + `OpportunityCard.tsx`; empty state with Chat With an Agent; `noindex` | — |
 | Server-side gate on results | §33 | ✅ | `GET /availability/enquiries/:id/matches` → `403 NOT_QUALIFIED` unless owned + completed; card fields only | Public `/listings` API still exists (Stage 6) |
 | New-lead notification | §20 | ✅ | `agents/leadNotification.ts` via `runAgent`: `admin_notifications` (`new_lead`) + Resend email to `ADMIN_EMAIL` | Admin UI for `new_lead` items and lead links (Stage 5) |
 
@@ -110,12 +110,12 @@ The current code was built for the **original marketplace scope** in quotation L
 
 | Item | Spec | Status | Current state | What's needed |
 |------|------|--------|---------------|---------------|
-| Opportunity card fields | §18 | 🔁 | Card has title/price/location/size/beds | Add reference no., capacity, facilities, availability date, 3 buttons |
-| Opportunity detail page | §19 | 🔁 | `ListingDetailPage.tsx` with gallery, map, specs | Gate by `lead_matches`; general area only; terms; agent block; request buttons |
-| Hide owner info | §18 | ✅/🔁 | Owner not shown to customers today | Keep; add confidential admin-only fields |
-| Request information / viewing | §19 | 🔁 | "Book" → `bookings` | `lead_requests` + endpoint |
-| Contact assigned agent | §33 | ⬜ | | `listings.assigned_agent_id` + chat picker |
-| Lead notification (dashboard + email) | §20 | 🟡 | `new_lead` built (Stage 3) | `lead_request` event |
+| Opportunity card fields | §18 | ✅ | `OpportunityCard.tsx`: reference no., title, general location, capacity, rooms × persons, type, facilities, availability, price (or "on request"), summary; **View Details**, **Request Information** (shows "Information Requested" once sent), **Chat With Agent** | Authorised images depend on admin photo upload (Stage 5) |
+| Opportunity detail page | §19 | ✅ | `pages/availability/OpportunityDetailPage.tsx` at `/availability/opportunities/:id?enquiry=…`; `GET /availability/opportunities/:id` gated by `lead_matches` (403) and availability (404); gallery, overview, facilities, accommodation specs, commercial information, terms, map only when `show_map`; agent block; `noindex`. Migration 0006 adds `listings.terms`, `show_map` | Admin form for `terms` / `show_map` (Stage 5); signed photo URLs (Stage 6) |
+| Hide owner info | §18 | ✅ | Card and detail queries select enquirer-safe columns only; coordinates nulled unless `show_map` | Confidential owner columns arrive with the admin properties rebuild (Stage 5) |
+| Request information / viewing | §19 | ✅ | `RequestDialog.tsx` → `POST /availability/enquiries/:id/requests` (`leadRequestSchema`); `lead_requests` (migration 0006) with a unique `(enquiry_id, listing_id, kind)`; a viewing moves `new\|contacted\|qualified\|matching` leads to `viewing_requested`; 10 / user / hour | Admin view of requests on the lead (Stage 5) |
+| Contact assigned agent | §33 | ✅ | Card and detail open the Chat With an Agent picker with `listings.assigned_agent_id` preselected (any agent when unset or inactive) | Admin assigns agents to listings (Stage 5) |
+| Lead notification (dashboard + email) | §20 | ✅ | `new_lead` (Stage 3) and `lead_request` (`notifyLeadRequest`) via `runAgent`: `admin_notifications` + Resend email | Admin UI for these notification types (Stage 5) |
 
 ## Stage 5: Admin
 
@@ -139,7 +139,7 @@ The current code was built for the **original marketplace scope** in quotation L
 | OTP fallback | §15 | ✅ | Gated on `ENVIRONMENT` (Stage 3) | — |
 | Input validation | §22 | 🟡 | Zod on `/availability/*` (shared schemas); older handlers use manual checks | Zod schemas on every handler |
 | Security headers / CSP | §22 | ⬜ | None | Hono middleware + Pages `_headers` |
-| Rate limits on forms | §22 | 🟡 | OTP + enquiry creation (`rl:enquiry:{user_id}`) | Request limit (Stage 4) |
+| Rate limits on forms | §22 | 🟡 | OTP, enquiry creation (`rl:enquiry:{user_id}`), info/viewing requests (`rl:request:{user_id}`) | Contact form if one is added |
 | Consent wording | §22 | ✅ | Details-step checkbox (wording from `security.md`), stored as `enquiries.consent_at` | — |
 | CORS for final domain | — | 🟡 | `momentum-living.com` + Pages domain | Add `labourcamps.com` |
 | Responsive QA | §23 | 🟡 | Pages are responsive-minded; not tested against the new flows | QA 320 px → desktop |
@@ -213,8 +213,8 @@ The original quotation was ₹ 80,000 for 8 working days and included no SEO. Pa
 | 12 | Enters requirements | ✅ |
 | 13 | System processes requirements | ✅ Matching engine + lead |
 | 14 | Only now sees relevant opportunities | ✅ Results page only after completion |
-| 15 | Can view an opportunity | 🟡 Result cards; gated detail page in Stage 4 |
-| 16 | Can request information/viewing | ❌ Stage 4 |
+| 15 | Can view an opportunity | ✅ Result cards and gated detail page |
+| 16 | Can request information/viewing | ✅ `lead_requests` + admin notification and email |
 | 17 | Can contact assigned agent | 🟡 Chat With Agent on cards (listing's agent, else any agent) |
 | 18 | Lead recorded in admin dashboard | 🟡 `enquiries` row + `new_lead` notification; leads module in Stage 5 |
 | 19 | Access control: unqualified user can't reach results | 🟡 Results gated server-side; legacy public `/listings` API still to remove (Stage 6) |
