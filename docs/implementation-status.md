@@ -1,6 +1,6 @@
 # Implementation Status: Client Build Spec vs Current Code
 
-**Last reviewed:** 2026-09-21 (branch `feat/stage-1-foundation`)
+**Last reviewed:** 2026-09-21 (branch `feat/stage-2-corporate-pages`)
 **Compared:** the client's *Build Specification: Momentum Living* against the current repo (docs + `apps/*` code)
 
 The current code was built for the **original marketplace scope** in quotation LNG-2026-WD-003. In that model, vendors self-register and post listings, and customers log in with OTP and browse everything. The client's spec describes a **different product**: a corporate site with no inventory, plus a gated **Availability** qualification journey that produces leads. This file lists, item by item, what is already done, what can be reused, what must be reworked, what is new and what is legacy.
@@ -26,10 +26,10 @@ The current code was built for the **original marketplace scope** in quotation L
 | SMS OTP backend (§15) | ✅ / ⚠️ | Solid. Dev fallback code needs environment gating |
 | Admin shell + notifications (§21) | 🟡 | Layout reusable; modules need retargeting |
 | Branding & design system (§2) | ✅ | Navy/white/charcoal/gold tokens, wordmark with LABOURCAMPS.COM (Stage 1) |
-| Global navigation & footer (§3, §25) | ✅ / 🟡 | Built; footer contact reads placeholders until `site_content` lands |
-| Home page (§4–6) | 🟡 | Spec hero + short about block; no inventory or invented facts. Why Choose cards pending |
-| About, MD, MD Note, Agents, Why Us, Contact, Privacy, Terms (§7–10, §22) | ⬜ | None exist |
-| Chat With an Agent (§11) | ⬜ | |
+| Global navigation & footer (§3, §25) | ✅ | Built; footer contact reads `site_content.company` (Stage 2) |
+| Home page (§4–6) | ✅ | Spec hero, CMS about block + audiences, 8 Why Choose cards; no inventory or invented facts |
+| About, MD, MD Note, Agents, Why Us, Contact, Privacy, Terms (§7–10, §22) | ✅ | Built from `site_content` / `GET /agents`; placeholders until the client supplies content (Stage 2) |
+| Chat With an Agent (§11) | 🟡 | Picker built (agent → WhatsApp / phone / email). Website chat hidden until a provider is chosen |
 | Availability wizard, steps 1–4 (§12–17) | ⬜ | Only a plain OTP login page exists |
 | Matching engine (§17) | ⬜ | Only a filter/browse query exists |
 | Opportunity cards + detail (§18–19) | 🔁 | Browse/detail pages exist but are ungated and customer-browse styled |
@@ -39,7 +39,7 @@ The current code was built for the **original marketplace scope** in quotation L
 | SEO (§24) | ⬜ | One static `<title>`; excluded from original quote |
 | Vendor portal, shortlists, public browse | 🗄️ | Not in spec |
 
-**Rough completion against the client spec: about 15–20 %** (foundation, OTP and admin shell). Most of the product-facing work is still to be done.
+**Rough completion against the client spec: about 30 %** (foundation, OTP, admin shell, corporate site). Most of the product-facing work is still to be done.
 
 ---
 
@@ -49,10 +49,10 @@ The current code was built for the **original marketplace scope** in quotation L
 |------|--------|---------------|---------------|
 | pnpm monorepo, workspaces | ✅ | `apps/web`, `apps/api`, `apps/ingestion`, `packages/shared` | — |
 | Wrangler config, D1/KV/R2 bindings | ✅ | `apps/api/wrangler.toml` | Add final domain routes |
-| D1 migrations | 🟡 | `0001_init`, `0002_uae_fields`, `0003_booking_contact_fields` | New migrations (see Stage 3–5) |
+| D1 migrations | 🟡 | `0001_init`, `0002_uae_fields`, `0003_booking_contact_fields`, `0004_site_content_agents` | New migrations (see Stage 3–5) |
 | CI | 🟡 | `.github/workflows/ci.yml`: typecheck + deploy | Add `pnpm lint`, `pnpm audit` |
 | JWT HS256 | ✅ | `apps/api/src/lib/jwt.ts`, `middleware/auth.ts` | Remove `vendor` role usage later |
-| Shared types | 🔁 | `packages/shared/src/index.ts` | `ListingType` is `property\|plot\|room` but the form uses `labour_camp\|warehouse\|land`. Add enquiry/lead/agent types |
+| Shared types | 🔁 | `packages/shared/src/index.ts`; content + agent types and placeholder seed in `content.ts` | `ListingType` is `property\|plot\|room` but the form uses `labour_camp\|warehouse\|land`. Add enquiry/lead types |
 | `agent_runs` audit rows | ⬜ | Table exists; no code writes to it | Wrap `waitUntil` tasks per `agent-spec.md` |
 | Ingestion Worker | 🟡 | Stub `apps/ingestion/src/index.ts` | Phase 2 only |
 
@@ -63,9 +63,9 @@ The current code was built for the **original marketplace scope** in quotation L
 | Brand: MOMENTUM LIVING + LABOURCAMPS.COM | §2, notes | ✅ | `components/site/BrandLogo.tsx`: wordmark + LABOURCAMPS.COM secondary line; labour-accommodation positioning | — |
 | Palette navy/white/charcoal/gold | §2 | ✅ | `tailwind.config.ts`: `navy` (aliased as `primary`), `charcoal`, `gold` scales; `index.css`: `.btn-*`, `.card`, `.heading-*`, `.eyebrow`, `.container-site` | Older screens (login, admin, vendor) still use hard-coded `#1D3B53`; restyle when each is reworked |
 | Global nav (7 items + AVAILABILITY) | §3 | ✅ | `components/site/SiteHeader.tsx`: 6 links + gold AVAILABILITY button, hamburger below `xl`; wrapped by `SiteLayout` | — |
-| Footer | §25 | 🟡 | `components/site/SiteFooter.tsx`: tagline, nav, contact, legal, socials, © line. Placeholders render as text, never as `tel:`/`mailto:` links | Read `site_content.company` instead of `COMPANY_PLACEHOLDER` (Stage 2) |
+| Footer | §25 | ✅ | `components/site/SiteFooter.tsx`: tagline, nav, contact from `site_content.company`, legal, socials (real `https://` URLs only), © line. Placeholders render as text, never as `tel:`/`mailto:` links | — |
 | Page title/meta | §24 | 🟡 | `lib/usePageMeta.ts`: per-route title, description, `noindex`; `index.html` default title/description | react-helmet-async + prerender in the SEO stage |
-| Routes for pending pages | §3 | 🟡 | `/about`, `/managing-director(/note)`, `/agents`, `/why-choose-us`, `/contact`, `/privacy`, `/terms`, `/availability` render `pages/site/PagePending.tsx` (`noindex`) | Replace with real pages (Stages 2–3) |
+| Routes for pending pages | §3 | 🟡 | Only `/availability` still renders `pages/site/PagePending.tsx` (`noindex`) | Replace with the wizard (Stage 3) |
 
 ## Stage 2: Corporate Pages
 
@@ -73,19 +73,19 @@ The current code was built for the **original marketplace scope** in quotation L
 |------|------|--------|---------------|---------------|
 | Home hero (headline, CTAs, AVAILABILITY) | §4 | ✅ | `Landing.tsx`: spec headline/text, Learn About / Speak to an Agent, separate AVAILABILITY button | — |
 | Home: no inventory | §4, §27 | ✅ | Category cards, marketplace and "Start Your Journey" links removed | — |
-| Home: about company section | §5 | 🟡 | Short "Who we are" block + Discover Momentum Living CTA | Full copy from `site_content.home` |
-| Why Choose cards (8) | §6 | ⬜ | "How the Matching Works" section instead | New cards from `site_content.why_choose_us` |
-| Invented facts removed | §30 | ✅ | Licence banner, DET claims, email and phone removed; footer uses `[COMPANY EMAIL]`-style placeholders | Source from CMS (Stage 2) |
-| About Us page | §10 | ⬜ | | `/about`, 6 sections + prominent contact block |
-| Managing Director page | §7 | ⬜ | | `/managing-director` from `site_content.md_profile` |
-| Note from MD | §8 | ⬜ | | `/managing-director/note` from `site_content.md_note` |
-| Our Agents page | §9 | ⬜ | | `/agents`, cards from `GET /agents` |
-| Why Choose Us page | §6 | ⬜ | | `/why-choose-us` |
-| Contact page | §10 | ⬜ | Only an anchor section on the landing page | `/contact` with all 8 fields |
-| Privacy Policy, Terms | §22 | ⬜ | | `/privacy`, `/terms` (placeholder text until client supplies wording) |
-| Chat With an Agent picker | §11 | ⬜ | | Modal: agent → WhatsApp / phone / email / web chat slot |
-| `site_content` table + `GET /content` | §21, §30 | ⬜ | | Migration + seed placeholders + route |
-| `agents` table + `GET /agents` | §9 | ⬜ | | Migration + route |
+| Home: about company section | §5 | ✅ | `site_content.home.about_intro` + audiences, Discover Momentum Living / Contact Us CTAs | — |
+| Why Choose cards (8) | §6 | ✅ | Cards from `site_content.why_choose_us.features[].summary`, Learn More → `/why-choose-us` | — |
+| Invented facts removed | §30 | ✅ | Licence banner, DET claims, email and phone removed; all contact data comes from `site_content` placeholders | Client to supply real values (admin editor in Stage 5) |
+| About Us page | §10 | ✅ | `pages/site/AboutPage.tsx`: Who We Are, What We Do, Who We Work With, Why Momentum Living, Our Approach (6 steps), prominent contact block | — |
+| Managing Director page | §7 | ✅ | `ManagingDirectorPage.tsx` from `site_content.md_profile`; portrait placeholder until `photo_key` is set | Client content |
+| Note from MD | §8 | ✅ | `MdNotePage.tsx`: letter-styled page from `site_content.md_note` | Client content |
+| Our Agents page | §9 | ✅ | `AgentsPage.tsx`: cards from `GET /agents` with Chat With Agent + WhatsApp (when real); loading / empty / error states | Client profiles + photos |
+| Why Choose Us page | §6 | ✅ | `WhyChooseUsPage.tsx`: intro + 8 expanded cards | — |
+| Contact page | §10 | ✅ | `ContactPage.tsx`: all 8 fields, Chat With an Agent, Start an Enquiry | — |
+| Privacy Policy, Terms | §22 | 🟡 | `LegalPage.tsx` renders `legal_privacy` / `legal_terms` as text (never HTML) | Client to supply legal wording |
+| Chat With an Agent picker | §11 | 🟡 | `components/site/ChatWithAgent.tsx`: provider in `SiteLayout`; modal: any agent / named agent → WhatsApp (prefilled) / phone / email; unavailable channels shown disabled | Website chat once a provider is chosen (open question 7); cards/detail in Stage 4 |
+| `site_content` table + `GET /content` | §21, §30 | ✅ | Migration 0004 + placeholder seed; `GET /content`, `GET /content/:key` (5-min cache) | Admin editor (Stage 5) |
+| `agents` table + `GET /agents` | §9 | ✅ | Migration 0004 + 3 placeholder profiles; `GET /agents` covered by `(is_active, display_order)` | Admin CRUD (Stage 5) |
 
 ## Stage 3: Availability Workflow
 
@@ -198,13 +198,13 @@ The original quotation was ₹ 80,000 for 8 working days and included no SEO. Pa
 
 | # | Check | Today |
 |---|-------|-------|
-| 1 | Visitor lands on homepage, sees corporate info | 🟡 Labour-accommodation hero + intro; full sections pending |
+| 1 | Visitor lands on homepage, sees corporate info | ✅ Hero, about, Why Choose cards |
 | 2 | Visitor does **not** see available properties | ✅ No inventory links on corporate pages or nav/footer |
-| 3 | Can read About Us | ❌ |
-| 4 | Can read about the Managing Director | ❌ |
-| 5 | Can read the MD's note | ❌ |
-| 6 | Can see the agents | ❌ |
-| 7 | Can contact/chat with an agent | 🟡 mailto/tel only, with invented values |
+| 3 | Can read About Us | ✅ |
+| 4 | Can read about the Managing Director | ✅ (placeholder content) |
+| 5 | Can read the MD's note | ✅ (placeholder content) |
+| 6 | Can see the agents | ✅ (placeholder profiles) |
+| 7 | Can contact/chat with an agent | 🟡 Picker built; channels activate once real numbers/emails are entered |
 | 8 | Clicks AVAILABILITY | 🟡 Button on every public page; leads to a holding page until Stage 3 |
 | 9 | Selects Tenant / Landlord / Management Company | ❌ |
 | 10 | Enters required details | ❌ |

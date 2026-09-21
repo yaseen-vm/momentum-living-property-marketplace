@@ -164,16 +164,16 @@ Index: `(enquiry_id, created_at)`.
 
 ---
 
-### `agents` **(new)**
-Public agent profiles, managed by admin. Agents do not log in (v1).
+### `agents` **(migration 0004)**
+Public agent profiles, managed by admin. Agents do not log in (v1). Seeded with three `[AGENT NAME]` placeholder profiles.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
 | `name` | TEXT NOT NULL | Placeholder `[AGENT NAME]` until supplied |
-| `position` | TEXT NOT NULL | e.g. *Labour Accommodation Specialist* |
+| `position` | TEXT NOT NULL | e.g. *Labour Accommodation Specialist*; seed `[AGENT POSITION]` |
 | `specialization` | TEXT | Area / property type |
-| `languages` | TEXT | JSON array |
+| `languages` | TEXT NOT NULL DEFAULT `'[]'` | JSON array |
 | `phone` | TEXT | E.164 |
 | `email` | TEXT | |
 | `whatsapp` | TEXT | E.164, used for `wa.me` links |
@@ -183,12 +183,12 @@ Public agent profiles, managed by admin. Agents do not log in (v1).
 | `is_active` | INTEGER NOT NULL DEFAULT 1 | Inactive agents hidden publicly, kept for lead history |
 | `created_at` / `updated_at` | INTEGER NOT NULL | |
 
-Index: `(is_active, display_order)`.
+Index: `idx_agents_active_order (is_active, display_order)`, covering `GET /agents`.
 
 ---
 
-### `site_content` **(new)**
-Admin-editable corporate content (CMS). One row per content block; value is JSON.
+### `site_content` **(migration 0004)**
+Admin-editable corporate content (CMS). One row per content block; value is JSON. The TypeScript shapes and placeholder seed live in `packages/shared/src/content.ts` (`SiteContent`, `DEFAULT_SITE_CONTENT`); the migration seed is generated from them, and the web app falls back to them per field when a value is missing or the API is unreachable.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -199,16 +199,16 @@ Admin-editable corporate content (CMS). One row per content block; value is JSON
 
 | Key | JSON shape (abridged) |
 |-----|----------------------|
-| `home` | `{ hero_headline, hero_text, hero_image_key, about_intro, audiences[] }` |
-| `about` | `{ who_we_are, what_we_do[], who_we_work_with[{title, text}], why_us, approach_steps[] }` |
-| `why_choose_us` | `{ intro, features[{title, text, icon}] }` |
+| `home` | `{ about_intro, audiences[] }` (hero headline and text are fixed by the spec, not CMS fields) |
+| `about` | `{ who_we_are, what_we_do[{title, text}], who_we_work_with[{title, text}], why_us, approach_steps[{title, text}] }` |
+| `why_choose_us` | `{ intro, features[{title, summary, text, icon}] }`: `summary` on Home cards, `text` on the Why Choose Us page; `icon` is one of `compass, network, users, zap, line-chart, handshake, shield, headset` |
 | `md_profile` | `{ name, title, photo_key, biography, experience, philosophy, vision, commitment_clients, commitment_standards, market_vision }` |
-| `md_note` | `{ heading, body, signature_name }` |
+| `md_note` | `{ heading, body, signature_name }` (`body` paragraphs separated by blank lines) |
 | `company` | `{ phone, whatsapp, email, general_email, sales_email, management_email, address, working_hours, socials{linkedin, instagram, other[]} }` |
-| `legal_privacy` / `legal_terms` | `{ body_markdown, updated_on }` |
+| `legal_privacy` / `legal_terms` | `{ body_markdown, updated_on }`: `body_markdown` supports `## heading`, `- item` lists and paragraphs, rendered as text (never as HTML) |
 | `availability_config` | `{ enable_buyer, enable_seller, nationality_field: "hidden"\|"optional"\|"required" }` |
 
-Seeded by migration with `[PLACEHOLDER]` values (never invented data).
+Seeded by migration 0004 with `[PLACEHOLDER]` values (never invented data). The descriptive corporate copy in `home`, `about` and `why_choose_us` is neutral draft wording for the client to approve; it contains no facts, figures or claims.
 
 ---
 

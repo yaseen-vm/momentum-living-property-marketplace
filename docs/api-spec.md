@@ -38,18 +38,21 @@ Client-side discard. **Response `200`** `{ "ok": true }`
 
 ---
 
-## Public Content **[new]**
+## Public Content **[built]**
+
+Routes: `apps/api/src/routes/content.ts`, `apps/api/src/routes/agents.ts`. Response types: `ContentItemResponse`, `ContentAllResponse`, `AgentsResponse` in `@momentum/shared`.
 
 ### `GET /content/:key` — public
 Keys: `home`, `about`, `why_choose_us`, `md_profile`, `md_note`, `company`, `legal_privacy`, `legal_terms`, `availability_config`.
 **Response `200`** `{ "key": "md_profile", "value": { ... }, "updated_at": 1790000000000 }`
+**Errors:** `404 NOT_FOUND` for an unknown key or a missing row.
 Cached at the edge (`Cache-Control: public, max-age=300`).
 
 ### `GET /content` — public
-All public keys in one response (used on first page load): `{ "items": { "home": {...}, "company": {...}, ... } }`
+All public keys in one response (used on first page load): `{ "items": { "home": {...}, "company": {...}, ... } }`. Same `Cache-Control`.
 
 ### `GET /agents` — public
-Active agents ordered by `display_order`.
+Active agents ordered by `display_order`. `photo_url` is `null` unless `photo_r2_key` is under `public-media/`. Same `Cache-Control`.
 ```json
 {
   "agents": [

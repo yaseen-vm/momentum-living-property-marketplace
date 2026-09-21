@@ -4,6 +4,13 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import SiteLayout from "./components/site/SiteLayout";
 import Landing from "./pages/Landing";
 import PagePending from "./pages/site/PagePending";
+import AboutPage from "./pages/site/AboutPage";
+import ManagingDirectorPage from "./pages/site/ManagingDirectorPage";
+import MdNotePage from "./pages/site/MdNotePage";
+import AgentsPage from "./pages/site/AgentsPage";
+import WhyChooseUsPage from "./pages/site/WhyChooseUsPage";
+import ContactPage from "./pages/site/ContactPage";
+import LegalPage from "./pages/site/LegalPage";
 import OtpLoginPage from "./pages/auth/OtpLoginPage";
 import VendorRegisterPage from "./pages/vendor/VendorRegisterPage";
 import VendorPendingPage from "./pages/vendor/VendorPendingPage";
@@ -18,20 +25,6 @@ import AdminBookingsPage from "./pages/admin/AdminBookingsPage";
 import AdminExportPage from "./pages/admin/AdminExportPage";
 import AdminReportsPage from "./pages/admin/AdminReportsPage";
 
-// Corporate routes whose pages arrive in Stage 2 (and /availability in Stage 3).
-// They render a holding page so every nav and footer link resolves.
-const PENDING_PAGES = [
-  { path: "/about", title: "About Us", description: "Who Momentum Living is, what we do and who we work with." },
-  { path: "/managing-director", title: "Managing Director", description: "Meet the Managing Director of Momentum Living." },
-  { path: "/managing-director/note", title: "A Note From the Managing Director", description: "A personal message from our Managing Director." },
-  { path: "/agents", title: "Our Agents", description: "Meet the Momentum Living team." },
-  { path: "/why-choose-us", title: "Why Choose Us", description: "Why clients work with Momentum Living." },
-  { path: "/contact", title: "Contact", description: "Get in touch with Momentum Living." },
-  { path: "/privacy", title: "Privacy Policy", description: "How Momentum Living handles your information." },
-  { path: "/terms", title: "Terms & Conditions", description: "Terms of use for this website." },
-  { path: "/availability", title: "Availability", description: "Tell us what you need and we will match you with suitable opportunities." },
-];
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -39,9 +32,24 @@ export default function App() {
         {/* Public corporate site */}
         <Route element={<SiteLayout />}>
           <Route path="/" element={<Landing />} />
-          {PENDING_PAGES.map(({ path, title, description }) => (
-            <Route key={path} path={path} element={<PagePending title={title} description={description} />} />
-          ))}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/managing-director" element={<ManagingDirectorPage />} />
+          <Route path="/managing-director/note" element={<MdNotePage />} />
+          <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/why-choose-us" element={<WhyChooseUsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/privacy" element={<LegalPage page="privacy" />} />
+          <Route path="/terms" element={<LegalPage page="terms" />} />
+          {/* The Availability wizard replaces this holding page in Stage 3. */}
+          <Route
+            path="/availability"
+            element={
+              <PagePending
+                title="Availability"
+                description="Tell us what you need and we will match you with suitable opportunities."
+              />
+            }
+          />
         </Route>
 
         {/* Sign-in (admin uses /login). Not linked from the corporate site. */}

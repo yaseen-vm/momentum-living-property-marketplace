@@ -21,11 +21,11 @@ Build order follows the client spec §32.
 - [x] Rebrand to Momentum Living + LABOURCAMPS.COM; remove invented company facts
 
 ### Stage 2 — Corporate pages
-- [ ] Home (hero, about, why-choose-us cards — no inventory)
-- [ ] About Us, Managing Director, MD's Note, Our Agents, Why Choose Us, Contact
-- [ ] Privacy Policy, Terms & Conditions
-- [ ] Chat With an Agent picker
-- [ ] `site_content` + `agents` tables, public `GET /content`, `GET /agents`, placeholder seed
+- [x] Home (hero, about, why-choose-us cards — no inventory)
+- [x] About Us, Managing Director, MD's Note, Our Agents, Why Choose Us, Contact
+- [x] Privacy Policy, Terms & Conditions (pages built; wording pending from client)
+- [x] Chat With an Agent picker (WhatsApp / phone / email; website chat in Phase 2)
+- [x] `site_content` + `agents` tables, public `GET /content`, `GET /agents`, placeholder seed
 
 ### Stage 3 — Availability workflow
 - [ ] Wizard shell with progress indicator

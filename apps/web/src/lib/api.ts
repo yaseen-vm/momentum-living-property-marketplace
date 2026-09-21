@@ -1,4 +1,11 @@
+import type { AgentsResponse, ContentAllResponse } from "@momentum/shared";
+
 const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:8787";
+
+/** Public URL for an R2 object under `public-media/` (MD portrait, corporate imagery). */
+export function publicMediaUrl(key: string): string | null {
+  return key.startsWith("public-media/") ? `${API_BASE}/upload/files/${key}` : null;
+}
 
 async function request<T>(path: string, options?: RequestInit & { token?: string }): Promise<T> {
   const { token, headers: extraHeaders, ...init } = options ?? {};
@@ -36,6 +43,12 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ mobile, otp, intent }),
       }),
+  },
+  content: {
+    all: () => request<ContentAllResponse>("/content"),
+  },
+  agents: {
+    list: () => request<AgentsResponse>("/agents"),
   },
   listings: {
     browse: (params: Record<string, string>, token: string) =>
