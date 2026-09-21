@@ -1,12 +1,14 @@
 # Listing Provider Adapter Contract
 
-Defines the interface that any external listing data source must implement to feed listings into the platform. In v1 all listings are created directly by verified vendors via the platform portal. This document specifies the adapter contract for future integrations (property portals, CRM exports, feed aggregators).
+Defines the interface that any external listing data source must implement to feed listings into the platform. In v1 all properties and opportunities are created by the **admin** in the dashboard (`/admin/properties`). This document specifies the adapter contract for future (Phase 2) integrations — partner feeds, CRM exports, bulk CSV imports.
+
+> Build status: the Ingestion Worker is a stub (`apps/ingestion/src/index.ts`). See [`implementation-status.md`](./implementation-status.md).
 
 ---
 
 ## Why an Adapter Layer
 
-Third-party sources vary in format (REST API, CSV, XML feed, webhook push). The adapter layer normalises them to a single `RawListing` shape before the platform validates, deduplicates (by `source_name + source_listing_id` in D1), and routes them through the standard admin approval queue.
+Third-party sources vary in format (REST API, CSV, XML feed, webhook push). The adapter layer normalises them to a single `RawListing` shape before the platform validates, deduplicates (by `source_name + source_listing_id` in D1), and saves them as **draft** admin-managed listings for review.
 
 Provider failures are isolated — one broken adapter does not affect others or corrupt D1 state.
 
@@ -93,7 +95,8 @@ interface RawListing {
   /** Public URLs — adapter is responsible for reachability */
   photos?: string[]
 
-  vendor_ref?: {
+  /** Owner details — stored only in confidential admin fields (owner_name / owner_contact) */
+  owner_ref?: {
     external_id: string
     name?: string
     mobile?: string
@@ -115,10 +118,14 @@ interface TransformedListing {
   source_name: string
   source_listing_id: string
 
-  type: 'property' | 'plot' | 'room'
+  type: 'labour_camp' | 'warehouse' | 'land'
+  opportunity_kind: 'accommodation_lease' | 'accommodation_sale' | 'tenant_demand' | 'management' | 'investor_demand'
+  total_capacity?: number
+  num_rooms?: number
+  availability_date?: number
   title: string
   description: string
-  price: number
+  price?: number
   currency: string
   location_slug: string    // normalised slug for D1 index
   location_text: string
@@ -148,15 +155,14 @@ Cron trigger (daily) OR POST /admin/ingest
                b. adapter.transform(raw) → TransformedListing
                c. D1 deduplication: SELECT id FROM listings
                   WHERE source_name = ? AND source_listing_id = ?
-                  → if new:   INSERT listings (status: 'pending', source_name: adapter.id)
-                              INSERT admin_notifications (type: 'listing_pending')
+                  → if new:   INSERT listings (status: 'draft', is_available: 0, source_name: adapter.id)
                   → if seen:  UPDATE if updated_at changed (title/price/description only)
           3. For each newly inserted listing:
                waitUntil: runEmbeddingAgent (v2)
       → UPDATE ingestion_log: last_run_at = now()
 ```
 
-All ingest-created listings enter the standard `pending → approved/rejected` admin queue. They are **never auto-published**.
+All ingest-created listings are saved as `draft` + unavailable. An admin reviews and publishes them from `/admin/properties`. They are **never auto-published** and never matched until published.
 
 **Free-tier note:** Keep daily ingestion volume well below D1's 100,000 row writes/day limit. Batch embedding calls; Workers AI allows 10,000 Neurons/day.
 
@@ -191,7 +197,7 @@ location_area, latitude, longitude, size_sqft, bedrooms, bathrooms,
 amenities (semicolon-separated), photo_urls (semicolon-separated)
 ```
 
-Rows failing validation are collected into a rejection report downloadable from the admin UI. Valid rows enter the approval queue.
+Rows failing validation are collected into a rejection report downloadable from the admin UI. Valid rows are created as drafts.
 
 ---
 
@@ -203,4 +209,4 @@ Provider photo URLs are **not** stored directly. The Ingestion Worker:
 2. Uploads to Cloudflare R2 under `listing-photos/{listing_id}/{index}.{ext}`
 3. Stores the R2 key in `listing_photos` table
 
-This ensures photos remain available if the provider removes the original URL and allows consistent delivery through the R2 private-bucket + presigned-URL pattern.
+This ensures photos remain available if the provider removes the original URL and allows consistent delivery through the R2 private-bucket + HMAC-signed URL pattern.

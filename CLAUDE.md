@@ -4,36 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Status
 
-This is currently a **documentation-only repository**. No application code exists yet. All architecture decisions, requirements, and API contracts are documented in `docs/`. Development should follow the decisions recorded there before writing any code.
+Application code exists (`apps/web`, `apps/api`, `apps/ingestion`, `packages/shared`). It was built for the **original marketplace scope** (quotation LNG-2026-WD-003). The client has since supplied a new build specification: a corporate site plus a private Availability journey. The **docs describe the new target system**, and `docs/implementation-status.md` records what is built, partial, pending or legacy. Read it before starting any task.
 
 ## Documentation Map
 
 | File | Purpose |
 |------|---------|
-| `docs/requirements.md` | Canonical product requirements and user flows — read this first |
+| `docs/implementation-status.md` | Built vs pending vs legacy, gap analysis against the client spec. Read this first |
+| `docs/requirements.md` | Canonical product requirements and user flows (from the client build spec) |
 | `docs/techstack.md` | Technology decisions with rationale; includes free-tier limits |
 | `docs/architecture.md` | System diagram, component roles, all request flows |
 | `docs/data-model.md` | D1 SQLite schema, KV key patterns, R2 key conventions, Vectorize indexes |
 | `docs/api-spec.md` | Full REST API contract with request/response shapes |
-| `docs/agent-spec.md` | Async agent tasks (OTP, notifications, moderation, CSV export, embeddings) |
+| `docs/agent-spec.md` | Async agent tasks (OTP, lead notifications, CSV export, embeddings) |
 | `docs/job-sources.md` | Listing provider adapter interface for external feed ingestion |
 | `docs/security.md` | JWT auth, OTP security, R2 access rules, AWS/Bedrock constraints |
 | `docs/roadmap.md` | Phase 1 (v1 scope) through Phase 4; free-tier constraints per phase |
-| `quotation-LNG-2026-WD-003.md` | Original client quotation — scope, costs, timeline |
+| `quotation-LNG-2026-WD-003.md` | Original client quotation. Its scope was superseded by the client build spec |
 
-## Planned Stack (when code is added)
+## Stack
 
 - **Frontend:** React 18 + TypeScript + Vite — static SPA deployed on **Cloudflare Pages**
 - **Backend:** TypeScript + **Hono** on **Cloudflare Workers** (V8 native, no Node.js)
 - **Database:** **Cloudflare D1** (SQLite) — sole relational store; no PostgreSQL
 - **Cache / rate-limit:** **Cloudflare KV** — OTP counters only, not primary data
-- **Files:** **Cloudflare R2** — private bucket; vendor documents and listing photos
+- **Files:** **Cloudflare R2** — private bucket; listing photos, corporate media (agent photos, MD portrait), enquiry documents
 - **Auth:** Custom JWT HS256; `crypto.randomUUID()` for all IDs; `crypto.getRandomValues()` for OTPs
 - **SMS:** MSG91 REST API
 - **Email:** Resend + React Email
 - **Package manager:** pnpm with workspaces monorepo
 
-## Planned Monorepo Layout
+## Monorepo Layout
 
 ```
 apps/
@@ -59,13 +60,14 @@ apps/
 **Auth**
 - JWT HS256 signed with `JWT_SECRET` (Workers Secret)
 - JWT payload: `{ sub: userId, role, mobile_verified: bool, exp }`
-- Role is read from the JWT on every request — never from query params or request body
-- Vendor routes additionally check `vendor_profiles.status = approved` in D1
+- Role is read from the JWT on every request, never from query params or request body
+- Roles: `customer` (= availability enquirer), `admin`; `vendor` is legacy
+- Availability results/details are gated server-side: enquiry owned by `jwt.sub`, `stage = completed`, listing present in `lead_matches`
 
 **R2 files**
 - All R2 objects are in a private bucket — never public-by-key
-- Listing photos served via short-lived presigned GET URLs (1-hour TTL)
-- Upload flow: client calls `POST /upload/presign` → gets a presigned PUT URL → uploads directly to R2 → sends R2 key in the listing form body
+- `public-media/*` (agent photos, corporate imagery) is served publicly by the Worker; every other prefix needs an HMAC-signed URL with a 1-hour TTL
+- Upload flow: multipart `POST /upload/file` through the Worker → R2 key returned → key sent in the form body
 
 **Agents**
 - All async tasks follow the pattern in `docs/agent-spec.md`: create an `agent_runs` row in D1 (status: pending), run via `waitUntil`, update status on completion/failure
@@ -74,17 +76,18 @@ apps/
 ## User Flows (quick reference)
 
 ```
-Owner:   landing → OTP verify → fill details form → pending
-         → [admin approves] → dashboard → submit listing
-         → [admin approves listing] → listing goes live
+Visitor:  corporate pages (Home, About, MD, MD Note, Agents, Why Us, Contact)
+          → NO inventory anywhere → chat with an agent
 
-Customer: landing → OTP verify → browse/search → listing detail
-          → "Book" button → [admin notified with both contacts]
-          → admin handles offline
+Enquirer: AVAILABILITY → user type → details + consent → OTP verify
+          → requirements → [matching + lead created + admin notified]
+          → matched opportunities → detail → request info / viewing / chat
 
-Admin:   owner verification queue → listing approval queue
-         → booking requests panel → CSV export (customers / owners)
+Admin:    leads (assign agent, 8 statuses, notes) → properties/opportunities
+          → agents → corporate content → export / reports
 ```
+
+**Strict no-listing rule:** corporate pages must never render property cards, prices, counts or "browse" CTAs. The only way into inventory is AVAILABILITY.
 
 ## Docs Are the Source of Truth
 
@@ -101,6 +104,7 @@ The `docs/` folder must stay in sync with the code at all times. If a code chang
 | Auth, secrets, file access, or security rules | `docs/security.md` |
 | A user-facing feature or flow | `docs/requirements.md` |
 | A phase milestone or backlog item | `docs/roadmap.md` |
+| Anything that moves an item from pending to built | `docs/implementation-status.md` |
 
 A commit that adds a new feature or changes behaviour without updating the matching doc is incomplete. Code and docs must always describe the same system.
 

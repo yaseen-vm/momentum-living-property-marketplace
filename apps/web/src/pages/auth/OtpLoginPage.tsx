@@ -1,5 +1,5 @@
 import { useNavigate, Link } from "react-router-dom";
-import { Building2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { OtpForm } from "../../components/OtpForm";
 import { useAuthStore } from "../../store/auth";
 import { api } from "../../lib/api";
@@ -9,9 +9,43 @@ interface OtpLoginPageProps {
   role: "customer" | "vendor";
 }
 
+const PANELS = {
+  customer: {
+    image: "/images/dubai_commercial_hero_1789645746196.jpg",
+    eyebrow: "Find Commercial Property",
+    heading: "Submit your requirement, we find the right fit.",
+    bullets: [
+      "Labour accommodation, warehouses & land",
+      "Verified mobile — OTP in seconds",
+      "Top 3 matched options delivered to you",
+    ],
+    formHeading: "Find a Property",
+    formSub: "Enter your mobile number to get started. We'll send a quick OTP.",
+    switchText: "Are you a property owner?",
+    switchLabel: "List your property",
+    switchTo: "/vendor/login",
+  },
+  vendor: {
+    image: "/images/modern_warehouse_1789645765775.jpg",
+    eyebrow: "List Your Property",
+    heading: "Register your availability and reach qualified tenants.",
+    bullets: [
+      "Labour camps, warehouses & commercial land",
+      "Your listing reviewed by our brokerage team",
+      "Connected with verified, qualified requirements",
+    ],
+    formHeading: "List Your Property",
+    formSub: "Enter your mobile number to register as a landlord or property owner.",
+    switchText: "Looking for a property instead?",
+    switchLabel: "Submit a requirement",
+    switchTo: "/login",
+  },
+};
+
 export default function OtpLoginPage({ role }: OtpLoginPageProps) {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const panel = PANELS[role];
 
   async function handleSuccess(token: string, returnedRole: string, userId: string) {
     setAuth(token, returnedRole as Role, userId);
@@ -40,92 +74,118 @@ export default function OtpLoginPage({ role }: OtpLoginPageProps) {
     navigate("/listings");
   }
 
-  const isVendor = role === "vendor";
-
   return (
     <div className="flex min-h-screen font-sans bg-white">
-      {/* Left Column (Hero Image) */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-slate-900">
+
+      {/* Left — hero panel */}
+      <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden">
         <img
-          src="/images/login_hero.jpg"
-          alt="Luxury Property"
+          src={panel.image}
+          alt="Commercial Property"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-black/20"></div>
-        
-        <div className="absolute top-10 left-12 flex items-center gap-3 text-white z-10">
-          <div className="bg-white p-2.5 rounded-full flex items-center justify-center">
-            <Building2 className="h-6 w-6 text-slate-900" />
-          </div>
-          <span className="text-2xl font-semibold">Momentum Living</span>
-        </div>
+        {/* Dark gradient from bottom-left */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0f2133]/90 via-[#1D3B53]/70 to-transparent" />
 
-        <div className="relative z-10 flex flex-col justify-end p-16 w-full text-white pb-24">
-          <span className="text-xs tracking-[0.2em] text-white/80 mb-6 uppercase font-medium">
-            Your Premier Property Marketplace
-          </span>
-          <h2 className="text-5xl lg:text-6xl font-serif leading-[1.1] mb-6">
-            Discover Verified <br />
-            <span className="italic font-light">Properties &</span> <br />
-            Modern Spaces
-          </h2>
-          <p className="text-base text-white/90 max-w-md leading-relaxed font-light">
-            Renowned for meticulous verification and masterful service, our real estate marketplace stands apart in delivering quality and peace of mind.
-          </p>
-          <div className="flex gap-2 mt-12">
-            <div className="w-8 h-1.5 bg-white rounded-full"></div>
-            <div className="w-1.5 h-1.5 bg-white/50 rounded-full"></div>
-            <div className="w-1.5 h-1.5 bg-white/50 rounded-full"></div>
+        <div className="relative z-10 flex flex-col h-full p-14">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-1 text-white">
+            <span className="text-xl font-bold italic font-serif">
+              Momentum<span className="font-sans font-semibold not-italic">Living</span>
+            </span>
+          </Link>
+
+          {/* Main copy — vertically centered */}
+          <div className="flex-1 flex flex-col justify-center max-w-md">
+            <span className="text-xs tracking-[0.2em] text-white/60 uppercase font-medium mb-5">
+              {panel.eyebrow}
+            </span>
+            <h2 className="text-4xl lg:text-5xl font-serif text-white leading-[1.15] mb-8">
+              {panel.heading}
+            </h2>
+            <ul className="space-y-4">
+              {panel.bullets.map((b) => (
+                <li key={b} className="flex items-start gap-3 text-white/80 text-sm leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-white/50 mt-0.5 flex-shrink-0" />
+                  {b}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Bottom — licence badge */}
+          <div className="text-xs text-white/40 leading-relaxed">
+            Momentum Living Real Estate L.L.C &nbsp;·&nbsp; Licence No. 1606417 &nbsp;·&nbsp; Dubai DET
           </div>
         </div>
       </div>
 
-      {/* Right Column (Form) */}
-      <div className="flex-1 flex flex-col justify-center items-center px-4 sm:px-12 bg-white relative">
-        <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="lg:hidden mb-10 flex items-center gap-3 justify-center">
-            <div className="bg-slate-900 p-2.5 rounded-full flex items-center justify-center">
-              <Building2 className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-semibold text-slate-900">Momentum Living</span>
-          </div>
-          
-          <div className="mb-8 text-center lg:text-left">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              Welcome Back to Momentum Living!
-            </h1>
-            <p className="text-slate-500">
-              {isVendor ? "Sign in to manage your properties" : "Sign in to your account"}
-            </p>
-          </div>
+      {/* Right — form panel */}
+      <div className="flex-1 flex flex-col bg-white">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
+          {/* Mobile logo */}
+          <Link to="/" className="lg:hidden text-xl font-bold italic font-serif text-slate-900">
+            Momentum<span className="font-sans font-semibold not-italic">Living</span>
+          </Link>
+          <div className="hidden lg:block" />
 
-          <div className="bg-white">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to home
+          </Link>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 flex items-center justify-center px-6 sm:px-12 py-12">
+          <div className="w-full max-w-sm">
+
+            {/* Role toggle pill */}
+            <div className="inline-flex bg-slate-100 rounded-full p-1 mb-8">
+              <Link
+                to="/login"
+                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  role === "customer"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Find Property
+              </Link>
+              <Link
+                to="/vendor/login"
+                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  role === "vendor"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                List Property
+              </Link>
+            </div>
+
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">
+              {panel.formHeading}
+            </h1>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+              {panel.formSub}
+            </p>
+
             <OtpForm
               onSuccess={handleSuccess}
               intent={role}
               title=""
               subtitle=""
             />
-          </div>
 
-          <div className="mt-12">
-            <p className="mt-8 text-center text-sm text-slate-500">
-              {isVendor ? (
-                <>
-                  Looking for a property?{" "}
-                  <Link to="/login" className="font-semibold text-primary-600 hover:underline">
-                    Browse listings
-                  </Link>
-                </>
-              ) : (
-                <>
-                  Want to list a property?{" "}
-                  <Link to="/vendor/login" className="font-semibold text-primary-600 hover:underline">
-                    Owner sign in
-                  </Link>
-                </>
-              )}
+            <p className="mt-8 text-center text-xs text-slate-400 leading-relaxed">
+              {panel.switchText}{" "}
+              <Link to={panel.switchTo} className="text-slate-700 font-medium hover:underline">
+                {panel.switchLabel}
+              </Link>
             </p>
           </div>
         </div>

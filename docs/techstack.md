@@ -1,31 +1,39 @@
 # Technology Decisions
 
+> Stack for the client build spec. Libraries marked **(to add)** are not yet in `package.json`. Build status: [`implementation-status.md`](./implementation-status.md).
+
 ## Architecture
 
-Cloud-native, API-first architecture running entirely on the Cloudflare free tier. Frontend and backend are separately deployable. No SSR runtime, no managed database outside Cloudflare, no paid hosting. The only non-Cloudflare runtime dependency is Amazon Bedrock (pay-per-use LLM, v2 only).
+Cloud-native, API-first, entirely on the Cloudflare free tier. Frontend and backend deploy separately. No SSR runtime, no database outside Cloudflare, no paid hosting.
+
+**Base44:** the client spec was written with Base44 in mind. We are **not** using Base44 — the stack below meets every spec requirement. The spec's one hard dependency is a real SMS/OTP provider (MSG91 below).
 
 ---
 
 ## Frontend
 
-- **React + TypeScript + Vite** — single-page application; outputs pure static files with no SSR runtime
-- **Tailwind CSS** — UI styling
-- **shadcn/ui** — accessible component primitives built on Radix UI; source is copied into the project (no lock-in)
-- **Cloudflare Pages** — frontend deployment and global CDN delivery; serves the Vite `dist/` output directly with no adapter required
-  - Free tier: 500 builds/month, 1 concurrent build, 20,000 files/project
+- **React 18 + TypeScript + Vite** — SPA, static output
+- **Tailwind CSS** — styling; design tokens for the corporate palette (navy / white / charcoal / gold)
+- **Primitives:** in-repo UI components (`apps/web/src/components/ui/*`); shadcn/ui-style patterns (copy-in, no lock-in)
+- **GSAP** — subtle section animations (respect `prefers-reduced-motion`)
+- **lucide-react** — icons
+- **React Router v6** — routing for corporate / availability / admin areas
+- **TanStack Query + Zustand** — server state + auth/wizard state
+- **React Hook Form + Zod** — wizard and admin forms (per-user-type schemas shared with the API via `packages/shared`)
+- **SEO:** `react-helmet-async` **(to add)** for per-route `<title>`/meta/canonical; corporate routes **prerendered to static HTML at build** (`vite-react-ssg` or equivalent — **(to add)**, tool chosen during implementation); generated `sitemap.xml` + `robots.txt`; availability routes `noindex`
+- **Cloudflare Pages** — hosting + CDN (500 builds/month, 20,000 files)
 
-Three portals (public, vendor, admin) live in one SPA codebase, gated by JWT role at the React Router level and re-verified server-side on every API request.
+Corporate site, availability journey and admin live in one SPA, gated by JWT role at the router and re-verified server-side on every request.
 
 ---
 
 ## Backend
 
-- **TypeScript + Hono** — backend language and web framework running natively on the Cloudflare Workers V8 runtime
-  - Hono is purpose-built for Cloudflare Workers: typed routing, middleware, and first-class binding helpers for D1, KV, R2
-  - Native V8 execution — no WASM, no cold-start overhead
-  - Shared TypeScript types between frontend and backend via a monorepo workspace
-- **REST API** — primary client-facing contract, served from a single Hono Worker
-- **Async work** — OTP dispatch, email notifications, and moderation hooks run via `waitUntil` inside the API Worker; no separate queue consumers needed at v1 scale
+- **TypeScript + Hono** on Cloudflare Workers (V8 native, no Node built-ins)
+- **Zod** **(to add to `apps/api`)** — request validation at every handler
+- **REST API** from a single Worker
+- **Matching engine** — plain TypeScript, rule-based, inline in the request (≤ 200 candidates scored)
+- **Async work** — `waitUntil` (OTP SMS, lead emails); no Queues at v1 scale
 
 ---
 
@@ -33,71 +41,59 @@ Three portals (public, vendor, admin) live in one SPA codebase, gated by JWT rol
 
 | Service | Role | Free Tier Limit |
 |---------|------|----------------|
-| **Workers** | API handlers, agent execution, async tasks | 100,000 req/day, 10 ms CPU/invocation |
-| **Pages** | Frontend hosting (React + Vite SPA) | 500 builds/month, 20,000 files/project |
-| **D1** | Primary relational database (SQLite-compatible) | 5 GB storage, 5 M rows read/day, 100,000 rows written/day |
-| **KV** | OTP rate-limit state, session cache, config | 100,000 reads/day, 1,000 writes/day, 1 GB storage |
-| **R2** | Listing photos, vendor documents | 10 GB storage/month, free egress, 1 M Class A ops/month |
-| **Workers AI** | Embedding generation (v2 semantic search) | 10,000 Neurons/day |
-| **Vectorize** | Semantic listing search (v2) | Included in Workers free plan |
-| **Workers Logs** | Structured logging and observability | 200,000 events/day, 3-day retention |
+| **Workers** | API, matching, async tasks | 100,000 req/day, 10 ms CPU/invocation |
+| **Pages** | Frontend | 500 builds/month, 20,000 files |
+| **D1** | Primary database | 5 GB, 5 M rows read/day, 100,000 rows written/day |
+| **KV** | Rate-limit counters, config | 100,000 reads/day, 1,000 writes/day |
+| **R2** | Photos, corporate media, documents | 10 GB/month, free egress |
+| **WAF rate limiting** | Per-IP limit on OTP send | 1 free rule |
+| **Workers AI / Vectorize** | v2 semantic re-ranking | Free allocation |
+| **Workers Logs** | Observability | 200,000 events/day |
 
-**External services:** MSG91 (SMS OTP, client pays directly), Resend (transactional email, free tier 100/day), Amazon Bedrock (Claude — v2 AI moderation, pay-per-use).
-
-**Services not used:** Vercel, Neon, Supabase, PlanetScale, Hyperdrive, Cloudflare Containers — either paid-only or require external hosting. No PostgreSQL at v1.
+**External services:** MSG91 (SMS OTP — client pays), Resend (email, 100/day free).
 
 ---
 
 ## Data Layer
 
-- **D1** — sole relational database. SQLite-compatible; all structured application data (users, vendors, listings, enquiries, OTP tokens, notifications)
-- **KV** — OTP rate-limit counters and config; not a substitute for D1 for primary data
-- **R2** — listing photos and vendor documents; private bucket; no public access
-- **Vectorize** — vector index for semantic listing similarity (v2 only)
+- **D1** — all structured data: users, enquiries/leads, matches, requests, notes, listings (properties & opportunities), agents, site content
+- **KV** — rate-limit counters and config only
+- **R2** — private bucket; `public-media/` served publicly by the Worker, everything else via signed URLs
+- **Vectorize** — v2 only
 
 ---
 
 ## Auth
 
-- **JWT (HS256)** — short-lived access tokens (24 h for customers/vendors, 8 h for admin)
-- **SMS OTP (MSG91)** — passwordless; only auth factor for all roles
-- No server-side session storage — JWT validated at the Worker edge on every request
-- Secrets stored in Cloudflare Workers Secrets via Wrangler — never in source control
+- **SMS OTP (MSG91)** — passwordless; verifies enquirers mid-journey and admins at login
+- **JWT HS256** — 24 h enquirer, 8 h admin; custom implementation (`apps/api/src/lib/jwt.ts`)
+- Secrets via Wrangler, never in source control
 
 ---
 
-## SMS OTP
+## SMS OTP — MSG91
 
-**Chosen:** MSG91
-- Strong India + UAE delivery rates
-- DLT-registered sender ID for India numbers
-- Simple REST API
-- Client (Momentum Living) pays gateway subscription and per-message costs directly
+Strong UAE + India delivery, simple REST API, client pays subscription and per-message cost. UAE sender ID registration to be completed by the client (see open questions in `implementation-status.md`).
 
 ---
 
 ## Email — Resend
 
-- Transactional email for admin enquiry notifications and vendor moderation outcomes
-- React Email for template authoring
-- Free tier: 100 emails/day — sufficient for v1 admin notification volume
+Admin new-lead and request notifications; optional enquirer acknowledgement. Plain HTML templates in v1 (React Email optional). Free tier 100 emails/day.
+
+---
+
+## Agent Communication ("Chat With an Agent")
+
+- **WhatsApp:** `https://wa.me/<number>?text=<prefilled message with reference>` — no API/account needed
+- **Phone / Email:** `tel:` / `mailto:`
+- **Website chat:** provider-agnostic slot; recommended free options Tawk.to or Crisp (script loaded only when a provider ID is configured in `site_content`)
 
 ---
 
 ## Maps — Leaflet + OpenStreetMap
 
-- No billing account or API key required
-- Adequate for pin-on-map listing display
-- Swap to Google Maps in v2 if place autocomplete is needed
-
----
-
-## AI (v2 only) — Amazon Bedrock
-
-- Claude Opus via Bedrock REST API for listing moderation assistance
-- Accessed from Workers using `aws4fetch` (SigV4 signing, Worker-compatible)
-- AWS credentials stored as Cloudflare Workers Secrets
-- Workers AI (`@cf/baai/bge-base-en-v1.5`) for embedding generation; Bedrock for any reasoning
+Used only on opportunity detail, and only when the admin enables `show_map` for that record (default is general area text, no pin). No API key required.
 
 ---
 
@@ -105,34 +101,32 @@ Three portals (public, vendor, admin) live in one SPA codebase, gated by JWT rol
 
 | Layer | Technology |
 |-------|-----------|
-| Framework (frontend) | React 18 + TypeScript + Vite |
-| Styling | Tailwind CSS + shadcn/ui |
-| State | Zustand (auth/UI) + TanStack Query (server state) |
-| Forms | React Hook Form + Zod |
-| Framework (backend) | Hono on Cloudflare Workers |
-| Database | Cloudflare D1 (SQLite) |
-| Cache / Rate-limit | Cloudflare KV |
-| File storage | Cloudflare R2 |
-| Auth | JWT HS256 (custom, no NextAuth) |
-| SMS OTP | MSG91 |
-| Email | Resend + React Email |
-| Maps | Leaflet + OpenStreetMap |
-| Tables / Export | TanStack Table v8 + csv-stringify (streaming) |
-| Charts | Recharts |
-| Frontend hosting | Cloudflare Pages |
-| API hosting | Cloudflare Workers |
-| Package manager | pnpm |
-| Monorepo | pnpm workspaces |
-| Deployment | Wrangler + GitHub Actions |
+| Frontend | React 18 + TypeScript + Vite |
+| Styling / motion | Tailwind CSS, GSAP |
+| State | Zustand + TanStack Query |
+| Forms / validation | React Hook Form + Zod (shared schemas) |
+| SEO | react-helmet-async + build-time prerender (to add) |
+| Backend | Hono on Cloudflare Workers |
+| Database | Cloudflare D1 |
+| Rate limits | Cloudflare KV + WAF |
+| Files | Cloudflare R2 (private) |
+| Auth | MSG91 OTP + custom JWT HS256 |
+| Email | Resend |
+| Chat | WhatsApp deep links, tel/mailto, pluggable web chat |
+| Maps | Leaflet + OSM (optional per record) |
+| Export | Streamed CSV from the Worker |
+| Charts (reports) | Recharts (to add, optional) |
+| Hosting | Cloudflare Pages + Workers |
+| Package manager / monorepo | pnpm workspaces |
+| CI/CD | GitHub Actions + Wrangler |
 | Linting | ESLint + Prettier |
 
 ---
 
 ## Engineering Principles
 
-- Design for free-tier limits from day one: minimise D1 row reads, batch AI calls, stay within KV write budget
-- Stateless Workers wherever possible; all state lives in D1, KV, or R2
-- Idempotent ingestion and background jobs
-- Async work via `waitUntil` — keep request handlers within the 10 ms CPU limit
-- Secrets in Cloudflare Workers Secrets (Wrangler), never in source control
-- Provider adapters for external listing sources so one failure does not break the pipeline
+- Design for free-tier limits: indexed queries, small candidate sets, minimal KV writes
+- Stateless Workers; all state in D1 / KV / R2
+- Async side effects via `waitUntil`; handlers within 10 ms CPU
+- Corporate content is data (CMS), never hard-coded facts — placeholders until the client supplies real information
+- Secrets in Workers Secrets only

@@ -1,385 +1,277 @@
 # REST API Specification
 
-**Base URL:** `https://api.property-marketplace.workers.dev`
+> Target API for the client build spec. Endpoints are tagged **[built]**, **[rework]** (exists, must change), **[new]** or **[legacy]** (original marketplace scope, pending removal). Build status: [`implementation-status.md`](./implementation-status.md).
 
-All endpoints require `Authorization: Bearer <jwt>` unless marked **public**. All request and response bodies are JSON. Timestamps are Unix milliseconds.
+**Base URL:** `https://api.momentum-living.workers.dev` (custom domain TBD — `api.labourcamps.com`)
 
-**Error format** (all errors):
+All endpoints require `Authorization: Bearer <jwt>` unless marked **public**. Bodies are JSON (except uploads). Timestamps are Unix ms. All request bodies are validated with Zod; unknown fields are stripped.
+
+**Error format:**
 ```json
-{ "error": { "code": "NOT_FOUND", "message": "Listing not found" } }
+{ "error": { "code": "NOT_FOUND", "message": "Enquiry not found" } }
 ```
-Common codes: `UNAUTHORIZED` · `FORBIDDEN` · `NOT_FOUND` · `VALIDATION_ERROR` · `RATE_LIMITED` · `CONFLICT` · `INTERNAL_ERROR`
+Codes: `UNAUTHORIZED` · `FORBIDDEN` · `NOT_FOUND` · `VALIDATION_ERROR` · `RATE_LIMITED` · `CONFLICT` · `NOT_QUALIFIED` · `INTERNAL_ERROR`
 
 ---
 
 ## Auth
 
-### `POST /auth/otp/send` — public
-Send an OTP to the given mobile number.
+### `POST /auth/otp/send` — public **[built]**
+**Request** `{ "mobile": "+971501234567" }`
+**Response `200`** `{ "expires_in": 300, "resend_after": 60 }`
+**Errors:** `422 VALIDATION_ERROR` (invalid E.164), `429 RATE_LIMITED` (3 sends / 10 min, or locked)
 
-**Request**
-```json
-{ "mobile": "+971501234567" }
-```
-**Response `200`**
-```json
-{ "expires_in": 300 }
-```
-**Errors:** `429 RATE_LIMITED` (3 resends/10 min), `422 VALIDATION_ERROR` (invalid E.164)
+The OTP is **never** included in any response. **[rework]** the fixed development OTP must only be used when `ENVIRONMENT = "development"`; in any other environment a missing/placeholder `MSG91_AUTH_KEY` returns `503` instead of silently accepting `123456`.
 
----
-
-### `POST /auth/otp/verify` — public
-Verify OTP and receive a JWT.
-
-**Request**
-```json
-{ "mobile": "+971501234567", "code": "482931" }
-```
+### `POST /auth/otp/verify` — public **[built]**
+**Request** `{ "mobile": "+971501234567", "code": "482931" }`
 **Response `200`**
 ```json
 { "token": "<jwt>", "user": { "id": "...", "role": "customer", "mobile_verified": true } }
 ```
-**Errors:** `400 INVALID_CODE`, `400 EXPIRED`, `423 LOCKED` (15-min lockout after 5 failures)
+**Errors:** `400 INVALID_CODE`, `400 EXPIRED`, `423 LOCKED` (15-min lock after 5 failures)
+
+**[rework]** remove the `intent: "vendor"` role upgrade (legacy). New users get role `customer` (= enquirer). Admin role is only ever set directly in D1.
+
+### `POST /auth/signout` **[built]**
+Client-side discard. **Response `200`** `{ "ok": true }`
 
 ---
 
-### `POST /auth/signout`
-Invalidate the current JWT (client-side discard; token is stateless — no server-side revocation in v1).
+## Public Content **[new]**
 
-**Response `200`** `{ "ok": true }`
+### `GET /content/:key` — public
+Keys: `home`, `about`, `why_choose_us`, `md_profile`, `md_note`, `company`, `legal_privacy`, `legal_terms`, `availability_config`.
+**Response `200`** `{ "key": "md_profile", "value": { ... }, "updated_at": 1790000000000 }`
+Cached at the edge (`Cache-Control: public, max-age=300`).
 
----
+### `GET /content` — public
+All public keys in one response (used on first page load): `{ "items": { "home": {...}, "company": {...}, ... } }`
 
-## Listings (Public)
-
-### `GET /listings` — public
-Search approved listings.
-
-**Query params**
-| Param | Type | Example |
-|-------|------|---------|
-| `type` | `property\|plot\|room` | `type=property` |
-| `location` | slug string | `location=dubai-marina` |
-| `min_price` | number | `min_price=50000` |
-| `max_price` | number | `max_price=200000` |
-| `min_size` | number (sqft) | `min_size=500` |
-| `amenities` | comma-separated | `amenities=pool,gym` |
-| `sort` | `price_asc\|price_desc\|newest` | `sort=price_asc` |
-| `limit` | number (default 20, max 50) | `limit=20` |
-| `offset` | number | `offset=40` |
-
-**Response `200`**
+### `GET /agents` — public
+Active agents ordered by `display_order`.
 ```json
 {
-  "listings": [
+  "agents": [
     {
-      "id": "a1b2c3d4...",
-      "type": "property",
-      "title": "2-Bed Apartment in Marina",
-      "price": 85000,
-      "currency": "AED",
-      "location_text": "Dubai Marina, Dubai",
-      "size_sqft": 1100,
-      "bedrooms": 2,
-      "bathrooms": 2,
-      "cover_photo_url": "https://pub-xxx.r2.dev/...",
-      "published_at": 1722499200000
+      "id": "...", "name": "[AGENT NAME]", "position": "Labour Accommodation Specialist",
+      "specialization": "[Area / Property Type]", "languages": ["English", "Arabic"],
+      "phone": null, "email": null, "whatsapp": null,
+      "photo_url": "https://api.../upload/files/public-media/agents/....jpg"
     }
-  ],
-  "total": 142,
-  "limit": 20,
-  "offset": 0
+  ]
 }
 ```
 
 ---
 
-### `GET /listings/:id` — public
-Full listing detail.
+## Availability Journey **[new]**
 
-**Response `200`**
-```json
-{
-  "id": "a1b2c3d4...",
-  "type": "property",
-  "title": "...",
-  "description": "...",
-  "price": 85000,
-  "currency": "AED",
-  "location_text": "Dubai Marina, Dubai",
-  "latitude": 25.078,
-  "longitude": 55.1336,
-  "size_sqft": 1100,
-  "bedrooms": 2,
-  "bathrooms": 2,
-  "amenities": ["pool", "gym", "parking"],
-  "photos": [
-    { "url": "https://pub-xxx.r2.dev/...", "display_order": 0 }
-  ],
-  "published_at": 1722499200000
-}
-```
+All endpoints require a JWT with `role = customer` and `mobile_verified = true` (obtained at the OTP step). Every handler scopes by `user_id = jwt.sub`.
 
----
-
-## Customer
-
-### `GET /customer/profile`
-**Auth:** role=customer
-
-**Response `200`**
-```json
-{
-  "id": "a1b2c3d4...",
-  "name": "Ahmed Al Mansoori",
-  "mobile": "+971501234567",
-  "mobile_verified_at": 1722499200000
-}
-```
-
----
-
-### `GET /customer/shortlist`
-**Auth:** role=customer — returns shortlisted listing summaries.
-
----
-
-### `POST /customer/shortlist`
-**Auth:** role=customer
-
-**Request** `{ "listing_id": "a1b2c3d4..." }`
-**Response `201`** `{ "ok": true }`
-**`409 CONFLICT`** if already shortlisted.
-
----
-
-### `DELETE /customer/shortlist/:listing_id`
-**Auth:** role=customer
-
-**Response `200`** `{ "ok": true }`
-
----
-
-### `POST /bookingies`
-Register interest in a listing.
-**Auth:** role=customer
-
-**Request** `{ "listing_id": "a1b2c3d4..." }`
-**Response `201`** `{ "bookingy_id": "a1b2c3d4-..." }`
-**`409 CONFLICT`** `ALREADY_ENQUIRED`
-**`403 FORBIDDEN`** `LISTING_NOT_AVAILABLE` if listing is not `approved`
-
----
-
-### `GET /customer/bookingies`
-**Auth:** role=customer — returns bookingy history with listing summaries and current status.
-
----
-
-## Vendor
-
-### `POST /vendor/register`
-Submit vendor registration (after OTP verification, before document upload).
-**Auth:** role=vendor (auto-assigned on first OTP verify with `?intent=vendor`)
+### `POST /availability/enquiries`
+Called right after OTP verification with the Step 1 + Step 2 data.
 
 **Request**
 ```json
 {
-  "vendor_type": "agent",
-  "company_name": "Prime Properties LLC",
-  "licence_no": "DLD-12345"
+  "user_type": "tenant",
+  "contact_kind": "company",
+  "full_name": "Contact Person",
+  "company_name": "Example Contracting LLC",
+  "position": "Procurement Manager",
+  "email": "person@example.com",
+  "nationality": null,
+  "company_website": null,
+  "business_type": "Construction",
+  "ownership_status": null,
+  "consent": true
 }
 ```
-**Response `201`** `{ "vendor_id": "a1b2c3d4-...", "status": "pending" }`
+Validation: field set depends on `user_type` / `contact_kind` (see `requirements.md` FR-11 Step 2). `consent` must be `true`. `mobile` is taken from the JWT user — never from the body.
 
----
+**Response `201`** `{ "enquiry_id": "...", "reference_no": "LD-2026-000123", "stage": "verified" }`
+**Errors:** `422 VALIDATION_ERROR`, `429 RATE_LIMITED` (5 / user / hour)
 
-### `POST /vendor/documents`
-Record an R2 key after a direct upload completes.
-**Auth:** role=vendor (any status)
+### `GET /availability/enquiries`
+Caller's own enquiries (resume journey). `{ "enquiries": [{ id, reference_no, user_type, stage, created_at }] }`
 
-**Request** `{ "label": "Agency Licence", "r2_key": "vendor-docs/a1b2c3d4-.../a1b2c3d4-....pdf" }`
-**Response `201`** `{ "document_id": "a1b2c3d4-..." }`
+### `GET /availability/enquiries/:id`
+Caller's own enquiry with details and requirements. `404` if not owned.
 
----
+### `PUT /availability/enquiries/:id/requirements`
+Step 3. Validated with the Zod schema for the enquiry's `user_type`.
 
-### `GET /vendor/listings`
-**Auth:** role=vendor, status=approved — returns vendor's own listings.
+**Request** — the requirements object (see `data-model.md` → Requirements JSON).
 
----
+**Effects (single request):**
+1. Save `requirements`, set `stage = completed`, `completed_at`.
+2. Run matching (indexed D1 candidate query → in-Worker scoring → top 20) and insert `lead_matches`.
+3. Set `lead_status = new`, `match_count`.
+4. `waitUntil`: notification agent → `admin_notifications` (`new_lead`) + admin email.
 
-### `POST /vendor/listings`
-Create a new listing (starts as `draft`).
-**Auth:** role=vendor, status=approved
+**Response `200`** `{ "enquiry_id": "...", "stage": "completed", "match_count": 7 }`
+**Errors:** `404`, `409 CONFLICT` (already completed — requirements are immutable after completion; start a new enquiry)
 
-**Request**
+### `GET /availability/enquiries/:id/matches`
+Step 4 results. **Only** when the enquiry is owned by the caller **and** `stage = completed`; otherwise `403 NOT_QUALIFIED`.
+
 ```json
 {
-  "type": "property",
-  "title": "...",
-  "description": "...",
-  "price": 85000,
-  "currency": "AED",
-  "location_slug": "dubai-marina",
-  "location_text": "Dubai Marina, Dubai",
-  "latitude": 25.078,
-  "longitude": 55.1336,
-  "size_sqft": 1100,
-  "bedrooms": 2,
-  "bathrooms": 2,
-  "amenities": ["pool", "gym"],
-  "photo_keys": ["listing-photos/a1b2c3d4-.../a1b2c3d4-....jpg"]
+  "enquiry": { "id": "...", "reference_no": "LD-2026-000123", "user_type": "tenant" },
+  "matches": [
+    {
+      "id": "...", "reference_no": "ML-LC-0042", "opportunity_kind": "accommodation_lease",
+      "title": "Labour Accommodation — Jebel Ali", "type": "labour_camp",
+      "location_text": "Jebel Ali, Dubai", "total_capacity": 400, "num_rooms": 50,
+      "persons_per_room": 8, "amenities": ["kitchen", "laundry"],
+      "availability_date": 1790000000000,
+      "price": 480000, "price_period": "year", "currency": "AED", "show_price": true,
+      "summary": "...", "cover_photo_url": "<signed url, 1 h>", "score": 86,
+      "agent": { "id": "...", "name": "...", "whatsapp": "...", "phone": "...", "email": "..." }
+    }
+  ]
 }
 ```
-**Response `201`** `{ "listing_id": "a1b2c3d4...", "status": "draft" }`
+Never includes `owner_name`, `owner_contact`, `internal_notes`, exact coordinates (unless `show_map`), or other enquirers' data.
+
+### `GET /availability/opportunities/:id?enquiry_id=...`
+Opportunity detail. Allowed only if `(enquiry_id, listing_id)` exists in `lead_matches` and the enquiry is owned by the caller and completed; else `403 NOT_QUALIFIED`. Returns card fields plus `description`, `terms`, commercial fields, all photos (signed URLs), labour-camp/warehouse/land specs, `latitude/longitude` only if `show_map`.
+
+### `POST /availability/enquiries/:id/requests`
+Request information or a viewing.
+
+**Request** `{ "listing_id": "...", "kind": "viewing", "message": "Can we visit next week?", "preferred_date": 1790500000000 }`
+**Effects:** insert `lead_requests`; for `viewing`, move `lead_status` to `viewing_requested` if currently `new|contacted|qualified|matching`; `waitUntil` admin notification (`lead_request`) + email.
+**Response `201`** `{ "request_id": "..." }`
+**Errors:** `403 NOT_QUALIFIED` (listing not in matches), `409 CONFLICT` (duplicate kind for that listing), `429 RATE_LIMITED` (10 / user / hour)
 
 ---
 
-### `PATCH /vendor/listings/:id`
-Edit a `draft` or `rejected` listing.
-**Auth:** role=vendor, owns listing
+## Upload **[rework]**
 
-**Request** — partial listing fields.
-**Response `200`** `{ "ok": true }`
-**`403 FORBIDDEN`** if listing is not in `draft` or `rejected` state.
+### `POST /upload/file` **[built → rework]**
+Multipart upload through the Worker to R2. **Auth:** admin (and enquirer for `enquiry_doc`).
 
----
+Form fields: `context` = `listing_photo` | `public_media` | `enquiry_doc` (+ legacy `vendor_doc`), `file`, and `listing_id` / `enquiry_id` where relevant.
+Types: images `image/jpeg|png|webp` (≤ 10 MB); docs add `application/pdf` (≤ 5 MB).
+**Response `201`** `{ "key": "listing-photos/.../....jpg" }`
 
-### `POST /vendor/listings/:id/submit`
-Move listing from `draft` → `pending`.
-**Auth:** role=vendor, owns listing
-
-**Response `200`** `{ "status": "pending" }`
-
----
-
-### `POST /vendor/listings/:id/withdraw`
-Set status to `withdrawn`.
-**Auth:** role=vendor, owns listing
-
-**Response `200`** `{ "status": "withdrawn" }`
-
----
-
-## Upload
-
-### `POST /upload/presign`
-Get a presigned R2 PUT URL for direct browser upload.
-**Auth:** role=vendor or admin
-
-**Request**
-```json
-{ "filename": "photo.jpg", "content_type": "image/jpeg", "context": "listing_photo" }
-```
-**Response `200`**
-```json
-{ "key": "listing-photos/a1b2c3d4-.../a1b2c3d4-....jpg", "upload_url": "https://..." }
-```
-Allowed `content_type` values: `image/jpeg`, `image/png`, `image/webp` (listing photos); `image/jpeg`, `image/png`, `application/pdf` (vendor docs).
-Upload URL TTL: 5 minutes. Max size enforced via R2 presign `contentLengthRange`: photos 10 MB, docs 5 MB.
+### `GET /upload/files/:key` **[built → rework]**
+Currently **unauthenticated for every key — must be fixed.** Target:
+- `public-media/*` — public, `Cache-Control: public, max-age=86400`.
+- All other prefixes — require `?exp=<unix ms>&sig=<hex>` where `sig = HMAC-SHA256(key + exp, JWT_SECRET)` and `exp` is in the future (URLs minted with 1-hour TTL by the API when it returns photo/doc URLs). Otherwise `403`.
 
 ---
 
 ## Admin
 
-All admin endpoints require `role = admin` — checked on every request from the JWT.
+All `/admin/*` endpoints require `role = admin`, checked on every handler.
 
-### `GET /admin/vendors?status=pending`
-Vendor verification queue with document R2 keys.
+### Leads **[new]** (replaces `/admin/bookings`)
 
-### `POST /admin/vendors/:id/approve`
-**Response `200`** `{ "ok": true }`
+#### `GET /admin/leads`
+Query: `user_type`, `lead_status`, `assigned_agent_id`, `stage` (default `completed`), `from`, `to`, `q` (name / company / mobile / reference), `limit`, `offset`.
+```json
+{
+  "leads": [
+    { "id": "...", "reference_no": "LD-2026-000123", "user_type": "tenant",
+      "full_name": "...", "company_name": "...", "mobile": "+9715...", "email": "...",
+      "lead_status": "new", "assigned_agent": { "id": "...", "name": "..." },
+      "match_count": 7, "request_count": 1, "created_at": 1790000000000 }
+  ],
+  "total": 58
+}
+```
 
-### `POST /admin/vendors/:id/reject`
-**Request** `{ "reason": "Document unclear" }`
-**Response `200`** `{ "ok": true }`
+#### `GET /admin/leads/:id`
+Full lead: details, requirements, matches (with listing refs), requests, notes timeline.
 
----
+#### `PATCH /admin/leads/:id`
+**Request** `{ "lead_status": "contacted", "assigned_agent_id": "...", "note": "Called, sending options" }` (all optional). A status change with a note writes a `lead_notes` row with `status_change`.
+**Response `200`** — updated lead.
 
-### `GET /admin/listings?status=pending`
-Listing approval queue.
+#### `POST /admin/leads/:id/notes`
+**Request** `{ "body": "..." }` → **`201`** `{ "note_id": "..." }`
 
-### `POST /admin/listings/:id/approve`
-**Response `200`** `{ "ok": true }`
+#### `POST /admin/leads/:id/rematch`
+Re-run matching against current inventory (e.g. after adding properties); replaces `lead_matches`. **`200`** `{ "match_count": 9 }`
 
-### `POST /admin/listings/:id/request-changes`
-**Request** `{ "note": "Please add clearer photos" }`
-**Response `200`** `{ "ok": true }`
+### Properties / Opportunities **[new]** (replaces listing approval queue)
 
-### `POST /admin/listings/:id/reject`
-**Request** `{ "reason": "..." }`
-**Response `200`** `{ "ok": true }`
+#### `GET /admin/properties`
+Query: `opportunity_kind`, `type`, `status`, `is_available`, `location`, `q`, `limit`, `offset`. Includes confidential fields.
 
----
+#### `GET /admin/properties/:id`
+#### `POST /admin/properties`
+Create. Body: all `listings` columns from `data-model.md` (admin-writable), `photo_keys[]` with optional `alt_text`. `reference_no` auto-generated if omitted. **`201`** `{ "id": "...", "reference_no": "ML-LC-0042" }`
+#### `PATCH /admin/properties/:id`
+Partial update, including `status` (`draft` | `approved` | `archived`) and `photo_keys` reorder.
+#### `POST /admin/properties/:id/availability`
+`{ "is_available": false }`
+#### `POST /admin/properties/:id/archive`
+Soft delete (`status = archived`, `archived_at`). Archived rows never match; existing `lead_matches` history kept.
 
-### `GET /admin/bookingies`
-All bookingies. Query params: `status`, `from` (Unix ms), `to` (Unix ms).
+### Agents **[new]**
+- `GET /admin/agents` — all, including inactive
+- `POST /admin/agents` — `{ name, position, specialization, languages[], phone, email, whatsapp, photo_key, bio, display_order }` → `201`
+- `PATCH /admin/agents/:id` — partial, incl. `is_active`
+- `DELETE /admin/agents/:id` — hard delete only if no leads/properties reference it; else `409` (deactivate instead)
 
-### `PATCH /admin/bookingies/:id`
-**Request** `{ "status": "owner_confirmed", "note": "Owner confirmed available" }`
-**Response `200`** — updated bookingy object.
+### Corporate Content **[new]**
+- `GET /admin/content` — all keys
+- `PUT /admin/content/:key` — `{ "value": { ... } }` validated per key schema → `200`
 
----
-
-### `GET /admin/export`
-Generate and stream CSV.
-
-**Query params**
+### Export **[rework]**
+#### `GET /admin/export`
 | Param | Values |
 |-------|--------|
-| `type` | `customers` \| `owners` |
-| `date_field` | `signup` \| `last_login` — which date column to filter on |
+| `type` | `leads` \| `enquirers` (legacy `customers` \| `owners` removed) |
+| `date_field` | `created` \| `last_login` (enquirers) |
 | `period` | `24h` \| `2d` \| `7d` \| `30d` \| `custom` |
-| `from` | Unix ms (required when `period=custom`) |
-| `to` | Unix ms (required when `period=custom`) |
-| `owner_status` | `pending` \| `approved` \| `rejected` \| `all` (owners export only) |
+| `from` / `to` | Unix ms (custom) |
+| `user_type` / `lead_status` | optional filters (leads) |
 
-**Column sets**
+Columns — `leads`: `reference_no, created_at, user_type, full_name, company_name, position, email, mobile, lead_status, assigned_agent, match_count, request_count, requirements_summary`; `enquirers`: `name, mobile, mobile_verified_at, signup_date, last_login_at`.
+**`200`** `text/csv` attachment. Rate limit 5 / admin / hour. Range ≤ 366 days.
 
-`customers`: `name, mobile, mobile_verified_at, signup_date, last_login_at`
-
-`owners`: `name, mobile, mobile_verified_at, vendor_type, status, company_name, licence_no, signup_date, last_login_at`
-
-**Response `200`** — `Content-Type: text/csv`, `Content-Disposition: attachment; filename="..."`
-
----
-
-### `GET /admin/reports`
-Summary metrics with date-range filter.
-**Query params:** `from`, `to` (Unix ms)
-
-**Response `200`**
+### Reports **[rework]**
+#### `GET /admin/reports?from=&to=`
 ```json
 {
-  "listings": { "total": 340, "approved": 280, "pending": 42, "rejected": 18 },
-  "vendors": { "total": 85, "approved": 70, "pending": 12, "rejected": 3 },
-  "customers": { "total": 1240, "verified": 1180 },
-  "bookingies": { "total": 430, "closed": 310, "pending": 120 }
+  "leads": { "total": 58, "by_status": { "new": 12, "contacted": 9, "...": 0 },
+             "by_user_type": { "tenant": 30, "landlord": 14, "management_company": 8, "buyer": 4, "seller": 2 } },
+  "requests": { "info": 21, "viewing": 9 },
+  "properties": { "total": 40, "available": 31, "by_kind": { "accommodation_lease": 25, "...": 0 } },
+  "enquirers": { "verified": 140 }
 }
 ```
 
+### Notifications **[built → rework types]**
+- `GET /admin/notifications?unread=true` → `{ count, items[{ id, type: "new_lead"|"lead_request", payload, created_at }] }`
+- `POST /admin/notifications/:id/read` → `{ ok: true }`
+
 ---
 
-### `GET /admin/notifications?unread=true`
-In-dashboard notification feed.
+## Legacy endpoints (original marketplace scope — pending removal)
 
-**Response `200`**
-```json
-{
-  "count": 5,
-  "items": [
-    { "id": "a1b2c3d4...", "type": "new_bookingy", "payload": { "bookingy_id": "..." }, "created_at": 1722499200000 }
-  ]
-}
-```
+These exist in `apps/api/src/routes/` today but are **not part of the client spec**. They must not be reachable from the v1 UI; remove once the client confirms.
 
-### `POST /admin/notifications/:id/read`
-Mark notification as read. **Response `200`** `{ "ok": true }`
+| Endpoint(s) | Status | Notes |
+|-------------|--------|-------|
+| `GET /listings`, `GET /listings/:id` | **[legacy — security issue]** | Currently **public/unauthenticated** — exposes all approved inventory, violating the no-listing / access-control rule. Remove (replaced by `/availability/*`). |
+| `POST /vendor/register`, `POST /vendor/documents`, `GET/PUT /vendor/profile` | [legacy] | Vendor self-onboarding |
+| `GET/POST /vendor/listings`, `GET/PATCH/PUT/DELETE /vendor/listings/:id`, `POST /vendor/listings/:id/submit\|withdraw` | [legacy] | Vendor listing management |
+| `GET/PUT /customer/profile` | [legacy] | Replaced by enquiry details |
+| `GET/POST /customer/bookings` | [legacy] | Replaced by `/availability/enquiries/:id/requests` |
+| `GET/POST/DELETE /customer/shortlist` | [legacy] | Not in spec |
+| `GET /admin/vendors`, `GET /admin/vendors/:id`, `POST /admin/vendors/:id/approve\|reject` | [legacy] | Vendor verification queue |
+| `GET /admin/listings`, `POST /admin/listings/:id/approve\|request-changes\|reject` | [legacy] | Replaced by `/admin/properties` |
+| `GET /admin/bookings`, `PATCH /admin/bookings/:id`, `POST /admin/bookings/:id/notes` | [legacy] | Replaced by `/admin/leads` |
 
 ---
 
 ## Utility
 
-### `GET /health` — public
-**Response `200`** `{ "status": "ok" }`
+### `GET /health` — public **[built]**
+`{ "status": "ok" }`
