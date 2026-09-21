@@ -20,7 +20,7 @@ Cloud-native, API-first, entirely on the Cloudflare free tier. Frontend and back
 - **React Router v6** — routing for corporate / availability / admin areas
 - **TanStack Query + Zustand** — server state + auth/wizard state
 - **React Hook Form + Zod** — wizard and admin forms (per-user-type schemas shared with the API via `packages/shared`)
-- **SEO:** `react-helmet-async` **(to add)** for per-route `<title>`/meta/canonical; corporate routes **prerendered to static HTML at build** (`vite-react-ssg` or equivalent — **(to add)**, tool chosen during implementation); generated `sitemap.xml` + `robots.txt`; availability routes `noindex`
+- **SEO:** interim `usePageMeta` hook (`apps/web/src/lib/usePageMeta.ts`) sets title/description/robots client-side; `react-helmet-async` **(to add)** for per-route `<title>`/meta/canonical; corporate routes **prerendered to static HTML at build** (`vite-react-ssg` or equivalent — **(to add)**, tool chosen during implementation); generated `sitemap.xml` + `robots.txt`; availability routes `noindex`
 - **Cloudflare Pages** — hosting + CDN (500 builds/month, 20,000 files)
 
 Corporate site, availability journey and admin live in one SPA, gated by JWT role at the router and re-verified server-side on every request.

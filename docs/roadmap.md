@@ -16,9 +16,9 @@ Build order follows the client spec §32.
 - [ ] CI lint step + `pnpm audit`
 
 ### Stage 1 — Foundation
-- [ ] Visual design system: navy / white / charcoal / gold tokens, typography, cards, buttons
-- [ ] Global navigation (7 items + prominent AVAILABILITY, mobile hamburger) and footer
-- [ ] Rebrand to Momentum Living + LABOURCAMPS.COM; remove invented company facts
+- [x] Visual design system: navy / white / charcoal / gold tokens, typography, cards, buttons
+- [x] Global navigation (7 items + prominent AVAILABILITY, mobile hamburger) and footer
+- [x] Rebrand to Momentum Living + LABOURCAMPS.COM; remove invented company facts
 
 ### Stage 2 — Corporate pages
 - [ ] Home (hero, about, why-choose-us cards — no inventory)
