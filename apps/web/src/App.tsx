@@ -3,7 +3,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 
 import SiteLayout from "./components/site/SiteLayout";
 import Landing from "./pages/Landing";
-import PagePending from "./pages/site/PagePending";
 import AboutPage from "./pages/site/AboutPage";
 import ManagingDirectorPage from "./pages/site/ManagingDirectorPage";
 import MdNotePage from "./pages/site/MdNotePage";
@@ -11,13 +10,13 @@ import AgentsPage from "./pages/site/AgentsPage";
 import WhyChooseUsPage from "./pages/site/WhyChooseUsPage";
 import ContactPage from "./pages/site/ContactPage";
 import LegalPage from "./pages/site/LegalPage";
+import AvailabilityPage from "./pages/availability/AvailabilityPage";
+import MatchesPage from "./pages/availability/MatchesPage";
 import OtpLoginPage from "./pages/auth/OtpLoginPage";
 import VendorRegisterPage from "./pages/vendor/VendorRegisterPage";
 import VendorPendingPage from "./pages/vendor/VendorPendingPage";
 import VendorDashboardPage from "./pages/vendor/VendorDashboardPage";
 import VendorListingFormPage from "./pages/vendor/VendorListingFormPage";
-import ListingBrowsePage from "./pages/customer/ListingBrowsePage";
-import ListingDetailPage from "./pages/customer/ListingDetailPage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminVendorsPage from "./pages/admin/AdminVendorsPage";
 import AdminListingsPage from "./pages/admin/AdminListingsPage";
@@ -40,16 +39,10 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy" element={<LegalPage page="privacy" />} />
           <Route path="/terms" element={<LegalPage page="terms" />} />
-          {/* The Availability wizard replaces this holding page in Stage 3. */}
-          <Route
-            path="/availability"
-            element={
-              <PagePending
-                title="Availability"
-                description="Tell us what you need and we will match you with suitable opportunities."
-              />
-            }
-          />
+
+          {/* Availability journey: the only route into inventory (spec §1, §12). */}
+          <Route path="/availability" element={<AvailabilityPage />} />
+          <Route path="/availability/results/:enquiryId" element={<MatchesPage />} />
         </Route>
 
         {/* Sign-in (admin uses /login). Not linked from the corporate site. */}
@@ -100,23 +93,8 @@ export default function App() {
           }
         />
 
-        {/* Customer */}
-        <Route
-          path="/listings"
-          element={
-            <ProtectedRoute roles={["customer"]} redirectTo="/login">
-              <ListingBrowsePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/listings/:id"
-          element={
-            <ProtectedRoute roles={["customer"]} redirectTo="/login">
-              <ListingDetailPage />
-            </ProtectedRoute>
-          }
-        />
+        {/* Legacy customer browse: inventory is only reachable through Availability now. */}
+        <Route path="/listings/*" element={<Navigate to="/availability" replace />} />
 
         {/* Admin */}
         <Route

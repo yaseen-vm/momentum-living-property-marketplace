@@ -2,10 +2,11 @@ import { Hono } from "hono";
 import type { Bindings, Variables } from "../types";
 import { generateOtp, hashOtp, verifyOtp } from "../lib/otp";
 import { signJwt } from "../lib/jwt";
-import { sendOtpSms, isFallbackMode, FALLBACK_OTP } from "../agents/otp";
+import { sendOtpSms, isFallbackMode, isSmsConfigured, FALLBACK_OTP } from "../agents/otp";
 
 const E164_RE = /^\+[1-9]\d{7,14}$/;
 const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_RESEND_AFTER_S = 60;
 const JWT_TTL_CUSTOMER_VENDOR = 24 * 60 * 60;
 const JWT_TTL_ADMIN = 8 * 60 * 60;
 
@@ -16,6 +17,11 @@ authRoutes.post("/otp/send", async (c) => {
   const { mobile } = body;
   if (!mobile || !E164_RE.test(mobile)) {
     return c.json({ error: { code: "VALIDATION_ERROR", message: "Invalid E.164 mobile number" } }, 422);
+  }
+
+  // Never accept a fixed code outside local development (spec §15).
+  if (!isSmsConfigured(c.env) && !isFallbackMode(c.env)) {
+    return c.json({ error: { code: "SERVICE_UNAVAILABLE", message: "SMS verification is temporarily unavailable" } }, 503);
   }
 
   const locked = await c.env.KV.get(`otp:lock:${mobile}`);
@@ -55,7 +61,7 @@ authRoutes.post("/otp/send", async (c) => {
     })()
   );
 
-  return c.json({ expires_in: 300 });
+  return c.json({ expires_in: OTP_TTL_MS / 1000, resend_after: OTP_RESEND_AFTER_S });
 });
 
 authRoutes.post("/otp/verify", async (c) => {

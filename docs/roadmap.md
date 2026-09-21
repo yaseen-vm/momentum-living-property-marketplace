@@ -28,18 +28,20 @@ Build order follows the client spec §32.
 - [x] `site_content` + `agents` tables, public `GET /content`, `GET /agents`, placeholder seed
 
 ### Stage 3 — Availability workflow
-- [ ] Wizard shell with progress indicator
-- [ ] Step 1 user type, Step 2 dynamic details + consent
-- [ ] OTP step inside the wizard (reuse existing OTP API/component)
-- [ ] Step 3 dynamic requirements per user type
-- [ ] `enquiries` table + `/availability/enquiries` endpoints
-- [ ] Matching engine + `lead_matches`; results page with empty state
+- [x] Wizard shell with progress indicator
+- [x] Step 1 user type, Step 2 dynamic details + consent
+- [x] OTP step inside the wizard (reuse existing OTP API)
+- [x] Step 3 dynamic requirements per user type (shared Zod schemas)
+- [x] `enquiries` table + `/availability/enquiries` endpoints (migration 0005)
+- [x] Matching engine + `lead_matches`; results page with empty state
+- [x] `new_lead` admin notification + email (pulled forward from Stage 4)
+- [ ] Landlord supporting-document upload (`enquiry-docs/*`)
 
 ### Stage 4 — Details & contact
 - [ ] Opportunity cards + detail page (gated by matches)
 - [ ] Request information / viewing (`lead_requests`)
 - [ ] Agent contact from card/detail
-- [ ] Lead notification agent (in-dashboard + email)
+- [ ] Lead notification agent: `lead_request` event (`new_lead` done in Stage 3)
 
 ### Stage 5 — Admin
 - [ ] Leads module (filters, detail, assign agent, 8 statuses, notes, rematch)
@@ -50,7 +52,7 @@ Build order follows the client spec §32.
 
 ### Stage 6 — Hardening
 - [ ] Remove public `/listings` API and unauthenticated file serving; signed URLs
-- [ ] OTP dev fallback gated on `ENVIRONMENT`
+- [x] OTP dev fallback gated on `ENVIRONMENT` (done in Stage 3)
 - [ ] Zod validation on all endpoints; security headers; CORS for final domain
 - [ ] Responsive QA (320 px → desktop), loading / empty / error states
 - [ ] SEO: helmet, prerender, sitemap, robots, alt text

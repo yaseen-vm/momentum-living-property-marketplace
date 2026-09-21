@@ -2,7 +2,7 @@
 
 > Async tasks for the client build spec. Build status: [`implementation-status.md`](./implementation-status.md).
 
-All agents run inside the **API Worker** via `waitUntil` — not via Queues or a separate Worker. Each agent has a fixed set of declared tools. Every run is recorded in the `agent_runs` D1 table (**gap:** current code runs the tasks but does not yet write `agent_runs` rows).
+All agents run inside the **API Worker** via `waitUntil` — not via Queues or a separate Worker. Each agent has a fixed set of declared tools. Every run is recorded in the `agent_runs` D1 table through `runAgent()` in `apps/api/src/lib/agentRuns.ts` (inserts a `running` row, then sets `completed` + `output` or `failed` + `error`). **Gap:** only the lead notification agent uses it so far; OTP send and legacy tasks do not yet write rows.
 
 **LLM:** none in v1. v2: Amazon Bedrock (Claude) for optional moderation/assist; Workers AI for embeddings.
 
@@ -29,11 +29,13 @@ All agents run inside the **API Worker** via `waitUntil` — not via Queues or a
 | `write_otp_token` | Invalidate previous unused tokens; insert HMAC-SHA256 hash + expiry into `otp_tokens` |
 | `send_sms` | POST MSG91 OTP API (template ID + mobile + code) |
 
-**Rule:** the fixed development code is used only when `ENVIRONMENT = "development"` (**rework** — currently triggered by a placeholder key).
+**Rule:** the fixed development code is used only when `ENVIRONMENT = "development"` and `MSG91_AUTH_KEY` is unset/placeholder. In any other environment a missing key makes `POST /auth/otp/send` return `503 SERVICE_UNAVAILABLE`.
 
 ---
 
-## 2. Lead Notification Agent **[new]** (replaces booking notification)
+## 2. Lead Notification Agent **[`new_lead` built; `lead_request` new]** (replaces booking notification)
+
+Code: `apps/api/src/agents/leadNotification.ts`, run via `runAgent` (`agent_type = notification`, input `{ event, enquiry_id }`). User-supplied values are HTML-escaped in the email body; the admin lead link is added with the admin leads module (Stage 5).
 
 **Triggers:**
 - `PUT /availability/enquiries/:id/requirements` completes an enquiry → event `new_lead`

@@ -71,7 +71,7 @@ export default function OtpLoginPage({ role }: OtpLoginPageProps) {
       return;
     }
 
-    navigate("/listings");
+    navigate("/availability");
   }
 
   return (

@@ -22,7 +22,7 @@ export type BookingStatus =
   | "customer_contacted"
   | "closed";
 
-export type NotificationType = "new_booking" | "vendor_pending" | "listing_pending";
+export type NotificationType = "new_lead" | "lead_request" | "new_booking" | "vendor_pending" | "listing_pending";
 
 export type AgentType = "otp_send" | "notification" | "moderation" | "csv_export" | "embedding";
 
@@ -49,6 +49,8 @@ export interface OtpSendRequest {
 
 export interface OtpSendResponse {
   expires_in: number;
+  /** Seconds before the client may offer "Resend OTP". */
+  resend_after: number;
 }
 
 export interface OtpVerifyRequest {
@@ -265,3 +267,7 @@ export interface AdminNotificationsResponse {
 // ─── Corporate content (site_content) and public agents ─────────────────────
 
 export * from "./content";
+
+// ─── Availability journey (enquiries, requirements, matches) ────────────────
+
+export * from "./availability";
