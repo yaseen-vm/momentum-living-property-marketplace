@@ -72,7 +72,7 @@ function SkeletonImage({
         style={style}
         onLoad={() => setIsLoaded(true)}
         onError={() => setIsError(true)}
-        {...(fetchPriority && { fetchpriority: fetchPriority })}
+        {...(fetchPriority && { fetchPriority })}
       />
     </div>
   );
@@ -124,9 +124,7 @@ export default function Landing() {
         img.src = src;
       });
 
-      if (window.ScrollTrigger) {
-        setTimeout(() => window.ScrollTrigger.refresh(), 100);
-      }
+      setTimeout(() => ScrollTrigger.refresh(), 100);
     });
   }, []);
 
@@ -240,7 +238,7 @@ export default function Landing() {
           alt="Professionally managed workforce accommodation"
           className="hero-img absolute inset-0 -z-10 h-full w-full object-cover"
           loading="eager"
-          fetchpriority="high"
+          fetchPriority="high"
         />
         <div className="absolute inset-0 -z-10 bg-navy-950/75 md:bg-transparent md:bg-gradient-to-r md:from-navy-950/90 md:via-navy-950/70 md:to-navy-950/20" />
 
