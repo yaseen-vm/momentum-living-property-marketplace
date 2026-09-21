@@ -10,7 +10,9 @@ All endpoints require `Authorization: Bearer <jwt>` unless marked **public**. Bo
 ```json
 { "error": { "code": "NOT_FOUND", "message": "Enquiry not found" } }
 ```
-Codes: `UNAUTHORIZED` · `FORBIDDEN` · `NOT_FOUND` · `VALIDATION_ERROR` · `RATE_LIMITED` · `CONFLICT` · `NOT_QUALIFIED` · `INTERNAL_ERROR`
+Codes: `UNAUTHORIZED` · `FORBIDDEN` · `NOT_FOUND` · `VALIDATION_ERROR` · `RATE_LIMITED` · `CONFLICT` · `NOT_QUALIFIED` · `SERVICE_UNAVAILABLE` · `INTERNAL_ERROR`
+
+`VALIDATION_ERROR` messages are prefixed with the failing field, e.g. `"occupants: Must be at least 1"`.
 
 ---
 
@@ -19,9 +21,9 @@ Codes: `UNAUTHORIZED` · `FORBIDDEN` · `NOT_FOUND` · `VALIDATION_ERROR` · `RA
 ### `POST /auth/otp/send` — public **[built]**
 **Request** `{ "mobile": "+971501234567" }`
 **Response `200`** `{ "expires_in": 300, "resend_after": 60 }`
-**Errors:** `422 VALIDATION_ERROR` (invalid E.164), `429 RATE_LIMITED` (3 sends / 10 min, or locked)
+**Errors:** `422 VALIDATION_ERROR` (invalid E.164), `429 RATE_LIMITED` (3 sends / 10 min, or locked), `503 SERVICE_UNAVAILABLE` (SMS provider not configured outside development)
 
-The OTP is **never** included in any response. **[rework]** the fixed development OTP must only be used when `ENVIRONMENT = "development"`; in any other environment a missing/placeholder `MSG91_AUTH_KEY` returns `503` instead of silently accepting `123456`.
+The OTP is **never** included in any response. The fixed development OTP is only used when `ENVIRONMENT = "development"` and `MSG91_AUTH_KEY` is unset/placeholder.
 
 ### `POST /auth/otp/verify` — public **[built]**
 **Request** `{ "mobile": "+971501234567", "code": "482931" }`
@@ -68,9 +70,11 @@ Active agents ordered by `display_order`. `photo_url` is `null` unless `photo_r2
 
 ---
 
-## Availability Journey **[new]**
+## Availability Journey **[built, except opportunity detail and requests]**
 
-All endpoints require a JWT with `role = customer` and `mobile_verified = true` (obtained at the OTP step). Every handler scopes by `user_id = jwt.sub`.
+Route: `apps/api/src/routes/availability.ts`. Request schemas and response types: `packages/shared/src/availability.ts`.
+
+All endpoints require a JWT with `role = customer` and `mobile_verified = true` (obtained at the OTP step); other roles get `403 FORBIDDEN`. Every handler scopes by `user_id = jwt.sub`.
 
 ### `POST /availability/enquiries`
 Called right after OTP verification with the Step 1 + Step 2 data.
@@ -91,7 +95,7 @@ Called right after OTP verification with the Step 1 + Step 2 data.
   "consent": true
 }
 ```
-Validation: field set depends on `user_type` / `contact_kind` (see `requirements.md` FR-11 Step 2). `consent` must be `true`. `mobile` is taken from the JWT user — never from the body.
+Validation: `contact_kind` selects the schema — `individual` (user_type `tenant`\|`buyer`), `company` (`tenant`\|`buyer`\|`management_company`), `landlord` (`landlord`\|`seller`); see `requirements.md` FR-11 Step 2. `consent` must be `true`. `buyer` / `seller` are rejected unless enabled in `availability_config`; `nationality` is required when `availability_config.nationality_field = "required"`. `mobile` is taken from the verified user — never from the body. Sets `users.name` if it is empty.
 
 **Response `201`** `{ "enquiry_id": "...", "reference_no": "LD-2026-000123", "stage": "verified" }`
 **Errors:** `422 VALIDATION_ERROR`, `429 RATE_LIMITED` (5 / user / hour)
@@ -103,7 +107,7 @@ Caller's own enquiries (resume journey). `{ "enquiries": [{ id, reference_no, us
 Caller's own enquiry with details and requirements. `404` if not owned.
 
 ### `PUT /availability/enquiries/:id/requirements`
-Step 3. Validated with the Zod schema for the enquiry's `user_type`.
+Step 3. Validated with the Zod schema for the enquiry's `user_type` (keys per type: `data-model.md` → Requirements JSON).
 
 **Request** — the requirements object (see `data-model.md` → Requirements JSON).
 
@@ -114,10 +118,10 @@ Step 3. Validated with the Zod schema for the enquiry's `user_type`.
 4. `waitUntil`: notification agent → `admin_notifications` (`new_lead`) + admin email.
 
 **Response `200`** `{ "enquiry_id": "...", "stage": "completed", "match_count": 7 }`
-**Errors:** `404`, `409 CONFLICT` (already completed — requirements are immutable after completion; start a new enquiry)
+**Errors:** `404`, `422 VALIDATION_ERROR`, `409 CONFLICT` (already completed — requirements are immutable after completion; start a new enquiry)
 
 ### `GET /availability/enquiries/:id/matches`
-Step 4 results. **Only** when the enquiry is owned by the caller **and** `stage = completed`; otherwise `403 NOT_QUALIFIED`.
+Step 4 results. **Only** when the enquiry is owned by the caller **and** `stage = completed`; otherwise `403 NOT_QUALIFIED`. Matches whose listing has since been unpublished or marked unavailable are omitted. `price` / `price_period` are `null` when `show_price = false`; `agent` is `null` when no active agent is assigned. `cover_photo_url` is currently an unsigned `/upload/files/` URL (signed URLs arrive with Stage 6).
 
 ```json
 {
@@ -138,10 +142,10 @@ Step 4 results. **Only** when the enquiry is owned by the caller **and** `stage 
 ```
 Never includes `owner_name`, `owner_contact`, `internal_notes`, exact coordinates (unless `show_map`), or other enquirers' data.
 
-### `GET /availability/opportunities/:id?enquiry_id=...`
+### `GET /availability/opportunities/:id?enquiry_id=...` **[new — Stage 4]**
 Opportunity detail. Allowed only if `(enquiry_id, listing_id)` exists in `lead_matches` and the enquiry is owned by the caller and completed; else `403 NOT_QUALIFIED`. Returns card fields plus `description`, `terms`, commercial fields, all photos (signed URLs), labour-camp/warehouse/land specs, `latitude/longitude` only if `show_map`.
 
-### `POST /availability/enquiries/:id/requests`
+### `POST /availability/enquiries/:id/requests` **[new — Stage 4]**
 Request information or a viewing.
 
 **Request** `{ "listing_id": "...", "kind": "viewing", "message": "Can we visit next week?", "preferred_date": 1790500000000 }`

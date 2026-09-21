@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@momentum/shared": "workspace:*",
-    "hono": "^4.6.0"
+    "hono": "^4.6.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240925.0",

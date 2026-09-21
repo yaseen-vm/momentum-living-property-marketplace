@@ -6,8 +6,14 @@ function isPlaceholder(val: string) {
 
 export const FALLBACK_OTP = "123456";
 
+/** SMS provider configured. Without it, OTP only works in local development. */
+export function isSmsConfigured(env: Bindings): boolean {
+  return !isPlaceholder(env.MSG91_AUTH_KEY);
+}
+
+/** Fixed development code: only ever when ENVIRONMENT=development and MSG91 is not configured. */
 export function isFallbackMode(env: Bindings): boolean {
-  return isPlaceholder(env.MSG91_AUTH_KEY);
+  return env.ENVIRONMENT === "development" && !isSmsConfigured(env);
 }
 
 export async function sendOtpSms(

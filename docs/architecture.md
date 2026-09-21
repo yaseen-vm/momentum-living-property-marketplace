@@ -56,11 +56,11 @@ Single Hono Worker. Thin handlers: Zod-validate input, authorise via JWT, read/w
 **Bindings:** `DB` (D1), `KV`, `R2`, plus secrets `JWT_SECRET`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `RESEND_API_KEY`, `ADMIN_EMAIL`; var `ENVIRONMENT`. v2 adds `AI`, `VECTORIZE_LISTINGS`, AWS secrets.
 
 ### Matching Engine (inline, synchronous)
-Runs inside `PUT /availability/enquiries/:id/requirements` and `POST /admin/leads/:id/rematch`.
+`apps/api/src/lib/matching.ts`. Runs inside `PUT /availability/enquiries/:id/requirements` (and, from Stage 5, `POST /admin/leads/:id/rematch`).
 
 1. Map `user_type` → allowed `opportunity_kind`s (table in `data-model.md`).
-2. Candidate query on the covering index `(status, is_available, opportunity_kind, location_slug, total_capacity)`: `status='approved' AND is_available=1 AND opportunity_kind IN (…) AND location_slug IN (…)` (location filter dropped if the enquirer chose "any"), `LIMIT 200`.
-3. Score each candidate in JS (0–100): capacity fit, budget fit (price within range, tolerance ±10 %), availability date ≤ move-in (+30 days tolerance), property type match, facility overlap. Hard-exclude candidates failing capacity or budget by > 25 %.
+2. Candidate query on the covering index `(status, is_available, opportunity_kind, location_slug, total_capacity)`: `status='approved' AND is_available=1 AND opportunity_kind IN (…) AND location_slug IN (…)` (location filter dropped if the enquirer chose "any"), `LIMIT 200`. The enquirer's emirates/areas are expanded to area slugs from the shared location catalogue (`packages/shared/src/availability.ts`): an emirate chosen without specific areas covers all its areas.
+3. Score each candidate in JS (0–100): capacity fit, budget fit (price within range, tolerance ±10 %), availability date ≤ move-in (+30 days tolerance), property type match, facility overlap. Hard-exclude candidates failing capacity or budget by > 25 %. Weights: capacity 30, budget 25, dates 15, type 15, facilities 15; a criterion the enquirer left blank scores full marks, a listing value that is missing scores half. Tenants, buyers and management companies are matched as *seekers* (the listing must cover their need); landlords and sellers as *providers* (their property must cover the demand record's need, and the demand's budget must reach their asking price). Budgets compare per year (monthly × 12), or on totals for sales.
 4. Keep top 20 with score ≥ 40 → `lead_matches` (batch insert).
 
 Deterministic and cheap (≤ 200 rows scored) — fits the CPU budget. v2 may add Vectorize re-ranking on free-text requirements.

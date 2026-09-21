@@ -55,13 +55,13 @@ Index: `(mobile)`.
 
 ---
 
-### `enquiries` **(new)** — the lead
+### `enquiries` **(migration 0005)** — the lead
 One row per availability journey. Created at OTP-verify time (step 2 data), completed at step 3.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `reference_no` | TEXT UNIQUE NOT NULL | Human reference, e.g. `LD-2026-000123` |
+| `reference_no` | TEXT UNIQUE NOT NULL | Human reference `LD-{year}-{seq:06}`, e.g. `LD-2026-000123`; the sequence is global (next = max + 1, computed in the INSERT) |
 | `user_id` | TEXT NOT NULL FK → users | Owner of the enquiry (from JWT) |
 | `user_type` | TEXT NOT NULL | `tenant` \| `landlord` \| `management_company` \| `buyer` \| `seller` |
 | `contact_kind` | TEXT NOT NULL | `individual` \| `company` \| `landlord` |
@@ -112,17 +112,29 @@ Indexes:
   "other": "Free text"
 }
 ```
-Field set varies by `user_type` (see `requirements.md` FR-11 Step 3); unknown keys are stripped by the Zod schema per type.
+Field set varies by `user_type` (see `requirements.md` FR-11 Step 3); unknown keys are stripped by the Zod schema per type (`REQUIREMENTS_SCHEMAS` in `packages/shared/src/availability.ts`). Keys per type:
+
+| `user_type` | Keys (all optional unless marked *) |
+|-------------|-------------------------------------|
+| `tenant` | `emirates`, `location_slugs`, `preferred_area`, `occupants`*, `rooms`, `beds`, `move_in_date`, `contract_months`, `budget_min`, `budget_max`, `budget_period` (`year`\|`month`), `property_type`, `facilities`, `parking` (`none`\|`car`\|`bus`\|`car_and_bus`), `transport` (`required`\|`not_required`), `other` |
+| `landlord` | `emirates`, `location_slugs`, `property_type`*, `capacity`*, `rooms`, `current_occupancy`, `availability_date`, `asking_price`, `price_period` (`year`\|`month`\|`total`), `preference`* (`lease`\|`sale`\|`management`), `contract_preference`, `property_condition` (`new`\|`good`\|`fair`\|`needs_renovation`), `facilities`, `other` |
+| `management_company` | `emirates`, `location_slugs`, `company_name`, `managed_capacity`, `capacity_min`, `management_requirements`, `operational_requirements`, `contract_requirements`, `other` |
+| `buyer` | `emirates`, `location_slugs`, `property_type`, `capacity_min`, `capacity_max`, `budget_min`, `budget_max`, `timeline`, `other` |
+| `seller` | `emirates`, `location_slugs`, `property_type`*, `capacity`, `asking_price`, `timeline`, `facilities`, `other` |
+
+- `emirates`: emirate slugs (`dubai`, `abu-dhabi`, `sharjah`, `ajman`, `umm-al-quwain`, `ras-al-khaimah`, `fujairah`). `location_slugs`: area slugs `{emirate}-{area}` from the shared `LOCATIONS` catalogue (e.g. `dubai-jebel-ali`, `abu-dhabi-mussafah`, `sharjah-other-area`). Empty = anywhere.
+- `facilities`: slugs from the shared `FACILITIES` list (`ac`, `kitchen`, `canteen`, `laundry`, `wifi`, `cctv`, `24-7-security`, `prayer-room`, `gym`, `separate-toilets`, `first-aid`, `parking`); compared with listing `amenities` labels after the same slugify.
+- `timeline`: `immediate` \| `3_months` \| `6_months` \| `12_months` \| `flexible`. Dates are Unix ms; money is AED.
 
 ---
 
-### `lead_matches` **(new)**
+### `lead_matches` **(migration 0005)**
 Snapshot of opportunities matched when the enquiry was completed. Also the **access-control list** for opportunity details.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `enquiry_id` | TEXT NOT NULL FK → enquiries | |
+| `enquiry_id` | TEXT NOT NULL FK → enquiries | `ON DELETE CASCADE` |
 | `listing_id` | TEXT NOT NULL FK → listings | |
 | `score` | REAL NOT NULL | Match score 0–100 |
 | `created_at` | INTEGER NOT NULL | |
@@ -213,32 +225,32 @@ Seeded by migration 0004 with `[PLACEHOLDER]` values (never invented data). The 
 ---
 
 ### `listings` — properties & opportunities
-**Rework:** listings become **admin-managed** records representing either a property or an opportunity. The `vendor_id NOT NULL` constraint must be relaxed (table rebuild migration — SQLite cannot drop NOT NULL in place).
+**Rework:** listings become **admin-managed** records representing either a property or an opportunity. The `vendor_id NOT NULL` constraint must be relaxed (table rebuild migration — SQLite cannot drop NOT NULL in place). Migration 0005 added the columns marked **(0005)**; the others marked **(new)** come with the admin properties rebuild (Stage 5). `location_slug` should come from the shared `LOCATIONS` catalogue so location filters can match it.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | TEXT PK | UUID |
-| `reference_no` | TEXT UNIQUE **(new)** | Internal/public reference, e.g. `ML-LC-0042` |
-| `opportunity_kind` | TEXT NOT NULL **(new)** | `accommodation_lease` \| `accommodation_sale` \| `tenant_demand` \| `management` \| `investor_demand` |
+| `reference_no` | TEXT UNIQUE **(0005)** | Internal/public reference, e.g. `ML-LC-0042` |
+| `opportunity_kind` | TEXT NOT NULL DEFAULT `accommodation_lease` **(0005)** | `accommodation_lease` \| `accommodation_sale` \| `tenant_demand` \| `management` \| `investor_demand` |
 | `vendor_id` | TEXT FK → vendor_profiles | *(legacy)* — **nullable** after rebuild; NULL for admin-created rows |
 | `created_by` | TEXT FK → users **(new)** | Admin who created it |
-| `assigned_agent_id` | TEXT FK → agents **(new)** | Shown on card/detail as contact |
+| `assigned_agent_id` | TEXT FK → agents **(0005)** | Shown on card/detail as contact |
 | `source_name` / `source_listing_id` | TEXT | Ingestion dedup (v2) |
 | `type` | TEXT NOT NULL | Property type: `labour_camp` \| `warehouse` \| `land` (shared type literal must be updated from `property\|plot\|room`) |
 | `status` | TEXT NOT NULL DEFAULT `draft` | `draft` \| `approved` (= published) \| `archived` **(new)**; legacy vendor values `pending` \| `rejected` \| `rented_sold` \| `withdrawn` |
-| `is_available` | INTEGER NOT NULL DEFAULT 1 **(new)** | Admin toggle; unavailable rows never match |
+| `is_available` | INTEGER NOT NULL DEFAULT 1 **(0005)** | Admin toggle; unavailable rows never match |
 | `title` | TEXT NOT NULL | Public name/reference |
-| `summary` | TEXT **(new)** | Short card description |
+| `summary` | TEXT **(0005)** | Short card description |
 | `description` | TEXT | Detail page |
 | `price` | REAL | Rent/sale price (nullable for demand/management kinds) |
-| `price_period` | TEXT **(new)** | `year` \| `month` \| `total` |
+| `price_period` | TEXT **(0005)** | `year` \| `month` \| `total` |
 | `currency` | TEXT NOT NULL DEFAULT `AED` | |
-| `show_price` | INTEGER NOT NULL DEFAULT 1 **(new)** | Hide price → "on request" |
+| `show_price` | INTEGER NOT NULL DEFAULT 1 **(0005)** | Hide price → "on request" |
 | `location_slug` | TEXT NOT NULL | Normalised area slug, e.g. `dubai-jebel-ali` |
 | `location_text` | TEXT NOT NULL | **General area only** (shown to enquirers) |
 | `latitude` / `longitude` | REAL | Admin-only unless `show_map = 1` |
 | `show_map` | INTEGER NOT NULL DEFAULT 0 **(new)** | |
-| `availability_date` | INTEGER **(new)** | Unix ms |
+| `availability_date` | INTEGER **(0005)** | Unix ms |
 | `size_sqft`, `bedrooms`, `bathrooms` | INTEGER | |
 | `num_rooms`, `persons_per_room`, `room_size_sqft`, `total_capacity` | | Labour camp fields (migration 0002) |
 | `mohre_certified`, `ejari_registered` | INTEGER | Labour camp flags |
@@ -254,9 +266,9 @@ Seeded by migration 0004 with `[PLACEHOLDER]` values (never invented data). The 
 | `created_at` / `updated_at` | INTEGER NOT NULL | |
 
 Indexes:
-- `(status, is_available, opportunity_kind, location_slug, total_capacity)` **(new)** — matching engine candidate query
+- `(status, is_available, opportunity_kind, location_slug, total_capacity)` **(0005)** `idx_listings_matching` — matching engine candidate query
 - `(opportunity_kind, status, updated_at)` **(new)** — admin list
-- `(reference_no)` UNIQUE **(new)**
+- `(reference_no)` UNIQUE WHERE reference_no IS NOT NULL **(0005)**
 - `(source_name, source_listing_id)` UNIQUE WHERE source_listing_id IS NOT NULL
 - `(status, type, location_slug, price)` *(legacy browse index — drop with browse page)*
 - `(vendor_id)` *(legacy)*
@@ -352,7 +364,7 @@ The bucket is **private**. Files are uploaded through the API Worker (`POST /upl
 |------------|-------|-----|
 | `otp:rate:{mobile}` | send count | 600 s |
 | `otp:lock:{mobile}` | `"1"` | 900 s |
-| `rl:enquiry:{user_id}` **(new)** | enquiries created this hour | 3,600 s |
+| `rl:enquiry:{user_id}` | enquiries created this hour | 3,600 s |
 | `rl:request:{user_id}` **(new)** | info/viewing requests this hour | 3,600 s |
 | `rl:export:{user_id}` | exports this hour | 3,600 s |
 | `config:*` | Platform config | none |

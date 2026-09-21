@@ -30,7 +30,7 @@ Corporate site, availability journey and admin live in one SPA, gated by JWT rol
 ## Backend
 
 - **TypeScript + Hono** on Cloudflare Workers (V8 native, no Node built-ins)
-- **Zod** **(to add to `apps/api`)** — request validation at every handler
+- **Zod** — request validation; schemas live in `packages/shared` and are shared with the wizard forms (used by `/availability/*`; older handlers still validate manually)
 - **REST API** from a single Worker
 - **Matching engine** — plain TypeScript, rule-based, inline in the request (≤ 200 candidates scored)
 - **Async work** — `waitUntil` (OTP SMS, lead emails); no Queues at v1 scale

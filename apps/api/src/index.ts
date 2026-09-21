@@ -5,6 +5,7 @@ import { authRoutes } from "./routes/auth";
 import { listingRoutes } from "./routes/listings";
 import { contentRoutes } from "./routes/content";
 import { agentRoutes } from "./routes/agents";
+import { availabilityRoutes } from "./routes/availability";
 import { vendorProfileRoutes } from "./routes/vendor/profile";
 import { vendorListingRoutes } from "./routes/vendor/listings";
 import { customerProfileRoutes } from "./routes/customer/profile";
@@ -41,6 +42,8 @@ app.route("/listings", listingRoutes);
 
 app.route("/content", contentRoutes);
 app.route("/agents", agentRoutes);
+
+app.route("/availability", availabilityRoutes);
 
 app.route("/vendor", vendorProfileRoutes);
 app.route("/vendor/listings", vendorListingRoutes);

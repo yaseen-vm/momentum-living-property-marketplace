@@ -1,10 +1,30 @@
-import type { AgentsResponse, ContentAllResponse } from "@momentum/shared";
+import type {
+  AgentsResponse,
+  CompleteEnquiryResponse,
+  ContentAllResponse,
+  CreateEnquiryResponse,
+  EnquiryDetails,
+  MatchesResponse,
+  OtpSendResponse,
+} from "@momentum/shared";
 
 const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:8787";
 
 /** Public URL for an R2 object under `public-media/` (MD portrait, corporate imagery). */
 export function publicMediaUrl(key: string): string | null {
   return key.startsWith("public-media/") ? `${API_BASE}/upload/files/${key}` : null;
+}
+
+/** A non-2xx API response. `code` is the API error code, e.g. `NOT_QUALIFIED`. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | null
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
 
 async function request<T>(path: string, options?: RequestInit & { token?: string }): Promise<T> {
@@ -21,7 +41,8 @@ async function request<T>(path: string, options?: RequestInit & { token?: string
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const e = (err as { error: unknown }).error;
     const msg = typeof e === "string" ? e : typeof e === "object" && e !== null && "message" in e ? String((e as { message: unknown }).message) : res.statusText;
-    throw new Error(msg);
+    const code = typeof e === "object" && e !== null && "code" in e ? String((e as { code: unknown }).code) : null;
+    throw new ApiError(msg, res.status, code);
   }
   return res.json() as Promise<T>;
 }
@@ -34,7 +55,7 @@ export interface OtpVerifyResponse {
 export const api = {
   auth: {
     sendOtp: (mobile: string) =>
-      request<{ message: string }>("/auth/otp/send", {
+      request<OtpSendResponse>("/auth/otp/send", {
         method: "POST",
         body: JSON.stringify({ mobile }),
       }),
@@ -49,6 +70,22 @@ export const api = {
   },
   agents: {
     list: () => request<AgentsResponse>("/agents"),
+  },
+  availability: {
+    createEnquiry: (details: EnquiryDetails, token: string) =>
+      request<CreateEnquiryResponse>("/availability/enquiries", {
+        method: "POST",
+        body: JSON.stringify(details),
+        token,
+      }),
+    submitRequirements: (enquiryId: string, requirements: Record<string, unknown>, token: string) =>
+      request<CompleteEnquiryResponse>(`/availability/enquiries/${enquiryId}/requirements`, {
+        method: "PUT",
+        body: JSON.stringify(requirements),
+        token,
+      }),
+    matches: (enquiryId: string, token: string) =>
+      request<MatchesResponse>(`/availability/enquiries/${enquiryId}/matches`, { token }),
   },
   listings: {
     browse: (params: Record<string, string>, token: string) =>
