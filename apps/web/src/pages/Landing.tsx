@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowRight } from "lucide-react";
 import { ContactCta } from "../components/site/ContactCta";
 import { useContent } from "../lib/content";
@@ -8,10 +9,21 @@ import { featureIcon } from "../lib/featureIcons";
 import { AVAILABILITY_PATH, BRAND } from "../lib/site";
 import { usePageMeta } from "../lib/usePageMeta";
 
+gsap.registerPlugin(ScrollTrigger);
+
+function Diamond() {
+  return (
+    <svg className="mt-0.5 h-3 w-3 shrink-0 text-gold-400" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+      <rect x="6" y="0" width="6" height="6" transform="rotate(45 6 6)" />
+    </svg>
+  );
+}
+
 // Strict no-listing rule (spec §27): this page must never link to inventory,
 // show prices/counts or use "browse" CTAs. The only way in is AVAILABILITY.
 export default function Landing() {
   const heroRef = useRef<HTMLElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
   const { data: home } = useContent("home");
   const { data: whyChoose } = useContent("why_choose_us");
 
@@ -24,12 +36,78 @@ export default function Landing() {
     const ctx = gsap.context(() => {
       gsap.from(".hero-reveal", { y: 24, opacity: 0, duration: 0.8, stagger: 0.12, ease: "power3.out" });
       gsap.from(".hero-img", { scale: 1.04, opacity: 0, duration: 1.1, ease: "power2.out" });
-    }, heroRef);
+
+      gsap.utils.toArray<HTMLElement>(".scroll-img").forEach((img) => {
+        gsap.fromTo(
+          img,
+          { y: 40, scale: 1.06 },
+          {
+            y: -40,
+            scale: 1,
+            ease: "none",
+            scrollTrigger: {
+              trigger: img.closest("section"),
+              start: "top bottom",
+              end: "bottom top",
+              scrub: true,
+            },
+          },
+        );
+      });
+
+      gsap.utils.toArray<HTMLElement>(".scroll-reveal").forEach((el) => {
+        gsap.from(el, {
+          y: 40,
+          opacity: 0,
+          duration: 0.9,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: el,
+            start: "top 85%",
+            toggleActions: "play none none none",
+          },
+        });
+      });
+
+      gsap.utils.toArray<HTMLElement>(".scroll-reveal-stagger").forEach((group) => {
+        const children = group.querySelectorAll(".stagger-child");
+        gsap.from(children, {
+          y: 50,
+          opacity: 0,
+          duration: 0.7,
+          stagger: 0.15,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: group,
+            start: "top 80%",
+            toggleActions: "play none none none",
+          },
+        });
+      });
+
+      gsap.utils.toArray<HTMLElement>(".parallax-bg").forEach((img) => {
+        gsap.fromTo(
+          img,
+          { yPercent: -10 },
+          {
+            yPercent: 10,
+            ease: "none",
+            scrollTrigger: {
+              trigger: img.closest("section"),
+              start: "top bottom",
+              end: "bottom top",
+              scrub: true,
+            },
+          },
+        );
+      });
+    }, pageRef);
     return () => ctx.revert();
   }, []);
 
   return (
-    <>
+    <div ref={pageRef}>
+      {/* ── Hero ── */}
       <section ref={heroRef} className="relative isolate overflow-hidden bg-navy-900">
         <img
           src="/images/professional_accommodation_1789645786277.jpg"
@@ -70,50 +148,166 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="section">
-        <div className="container-site grid gap-12 md:grid-cols-12">
-          <div className="md:col-span-7">
-            <span className="eyebrow">About the company</span>
-            <h2 className="heading-2 mt-4">A specialist in labour accommodation</h2>
-            <span className="gold-rule mt-6" aria-hidden />
-            <p className="lead mt-6">{home.about_intro}</p>
-            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-              <Link to="/about" className="btn-primary">
-                Discover Momentum Living <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link to="/contact" className="btn-secondary">
-                Contact Us
-              </Link>
+      {/* ── The Company — content left, image right ── */}
+      <section className="overflow-hidden">
+        <div className="grid md:grid-cols-2">
+          <div className="scroll-reveal flex flex-col justify-center px-6 py-16 sm:px-10 md:py-24 lg:py-32 lg:pl-[max(2rem,calc((100vw-1280px)/2+2rem))] lg:pr-16">
+            <div className="flex items-center gap-3">
+              <span className="block h-px w-8 bg-gold-400" aria-hidden />
+              <span className="eyebrow">The Company</span>
             </div>
-          </div>
-          <div className="md:col-span-5">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-charcoal-400">Who we work with</h3>
-            <ul className="mt-5 flex flex-wrap gap-2">
-              {home.audiences.map((audience) => (
-                <li
-                  key={audience}
-                  className="rounded-full border border-charcoal-100 bg-navy-50/60 px-4 py-2 text-sm font-medium text-navy-800"
-                >
-                  {audience}
+            <h2 className="mt-6 font-serif text-3xl leading-[1.15] text-navy-900 md:text-4xl lg:text-[2.75rem]">
+              A specialist real-estate company focused on labour accommodation.
+            </h2>
+            <p className="mt-6 text-base leading-relaxed text-charcoal-400 md:text-lg">
+              {home.about_intro || "Momentum Living connects and works with property owners, landlords, tenants, operators, management companies, investors, corporate clients and real-estate agents — bringing professionalism, relationships and market knowledge to every transaction."}
+            </p>
+
+            <ul className="mt-10 grid grid-cols-2 gap-x-8 gap-y-3">
+              {["Property Owners", "Landlords", "Tenants", "Operators", "Management Companies", "Investors", "Corporate Clients", "Real-estate Agents"].map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm font-medium text-navy-800">
+                  <Diamond />
+                  {item}
                 </li>
               ))}
             </ul>
+
+            <div className="mt-10">
+              <Link
+                to="/about"
+                className="group inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-navy-800 transition-colors hover:text-gold-600"
+              >
+                Discover Momentum Living
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="relative min-h-[400px] overflow-hidden md:min-h-[600px]">
+            <img
+              src="/images/modern_warehouse_1789645765775.jpg"
+              alt="Modern workforce accommodation facility"
+              className="scroll-img absolute inset-0 h-[120%] w-full object-cover"
+            />
           </div>
         </div>
       </section>
 
+      {/* ── Accommodation Excellence — image left, content right ── */}
+      <section className="overflow-hidden bg-navy-50/40">
+        <div className="grid md:grid-cols-2">
+          <div className="relative order-2 min-h-[400px] overflow-hidden md:order-1 md:min-h-[600px]">
+            <img
+              src="/images/interior_living_1789544175691.jpg"
+              alt="Premium interior living quarters"
+              className="scroll-img absolute inset-0 h-[120%] w-full object-cover"
+            />
+          </div>
+
+          <div className="scroll-reveal order-1 flex flex-col justify-center px-6 py-16 sm:px-10 md:order-2 md:py-24 lg:py-32 lg:pl-16 lg:pr-[max(2rem,calc((100vw-1280px)/2+2rem))]">
+            <div className="flex items-center gap-3">
+              <span className="block h-px w-8 bg-gold-400" aria-hidden />
+              <span className="eyebrow">Our Standards</span>
+            </div>
+            <h2 className="mt-6 font-serif text-3xl leading-[1.15] text-navy-900 md:text-4xl lg:text-[2.75rem]">
+              Purpose-built for the modern workforce.
+            </h2>
+            <p className="mt-6 text-base leading-relaxed text-charcoal-400 md:text-lg">
+              Every facility we manage is designed around the people who live there — from ventilation
+              and safety systems to communal spaces and amenities, ensuring the highest standards
+              of comfort and compliance.
+            </p>
+
+            <ul className="mt-10 grid grid-cols-2 gap-x-8 gap-y-3">
+              {["Mohre Compliant", "Ejari Certified", "24/7 Management", "Fire & Safety Systems", "Scalable Capacity", "Strategic Locations", "Modern Amenities", "Secure Access"].map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm font-medium text-navy-800">
+                  <Diamond />
+                  {item}
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-10">
+              <Link
+                to={AVAILABILITY_PATH}
+                className="group inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-navy-800 transition-colors hover:text-gold-600"
+              >
+                Check Availability
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Commercial Spaces — full-bleed parallax ── */}
+      <section className="relative isolate overflow-hidden">
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <img
+            src="/images/dubai_commercial_hero_1789645746196.jpg"
+            alt="Commercial real estate in Dubai"
+            className="parallax-bg h-[120%] w-full object-cover"
+          />
+        </div>
+        <div className="absolute inset-0 -z-10 bg-navy-950/65" />
+
+        <div className="container-site py-24 md:py-32 lg:py-40">
+          <div className="scroll-reveal max-w-2xl">
+            <div className="flex items-center gap-3">
+              <span className="block h-px w-8 bg-gold-400" aria-hidden />
+              <span className="eyebrow text-gold-300">Commercial Properties</span>
+            </div>
+            <h2 className="mt-6 font-serif text-3xl leading-[1.15] text-white md:text-4xl lg:text-[2.75rem]">
+              Strategic commercial spaces across the Emirates.
+            </h2>
+            <p className="mt-6 text-base leading-relaxed text-navy-100 md:text-lg">
+              From warehouses and open yards to labour camps and industrial land, we connect businesses
+              with the commercial spaces they need to operate and grow across Dubai, Abu Dhabi, Sharjah
+              and the Northern Emirates.
+            </p>
+
+            <ul className="mt-10 grid grid-cols-2 gap-x-8 gap-y-3">
+              {["Warehouses", "Labour Camps", "Open Yards", "Industrial Land", "Commercial Offices", "Mixed-use Facilities"].map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-sm font-medium text-white/90">
+                  <Diamond />
+                  {item}
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+              <Link to={AVAILABILITY_PATH} className="btn-availability">
+                Explore Availability <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/agents"
+                className="group inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 transition-colors hover:text-gold-300"
+              >
+                Speak to a Specialist
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Why Choose Us ── */}
       <section className="section bg-navy-50/60">
         <div className="container-site">
-          <div className="max-w-2xl">
-            <span className="eyebrow">Why Momentum Living</span>
-            <h2 className="heading-2 mt-4">Why Choose Momentum Living</h2>
-            <span className="gold-rule mt-6" aria-hidden />
+          <div className="scroll-reveal max-w-2xl">
+            <div className="flex items-center gap-3">
+              <span className="block h-px w-8 bg-gold-400" aria-hidden />
+              <span className="eyebrow">Why Momentum Living</span>
+            </div>
+            <h2 className="mt-6 font-serif text-3xl leading-[1.15] text-navy-900 md:text-4xl lg:text-[2.75rem]">
+              Why choose Momentum Living.
+            </h2>
           </div>
-          <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="scroll-reveal-stagger mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {whyChoose.features.map(({ title, summary, icon }) => {
               const Icon = featureIcon(icon);
               return (
-                <li key={title} className="card">
+                <li key={title} className="stagger-child card">
                   <Icon className="h-7 w-7 text-gold-500" aria-hidden />
                   <h3 className="mt-5 font-serif text-lg text-navy-900">{title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-charcoal-500">{summary}</p>
@@ -129,7 +323,76 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Spaces Showcase — image grid with staggered reveal ── */}
+      <section className="section">
+        <div className="container-site">
+          <div className="scroll-reveal max-w-2xl">
+            <div className="flex items-center gap-3">
+              <span className="block h-px w-8 bg-gold-400" aria-hidden />
+              <span className="eyebrow">Our Spaces</span>
+            </div>
+            <h2 className="mt-6 font-serif text-3xl leading-[1.15] text-navy-900 md:text-4xl lg:text-[2.75rem]">
+              Spaces designed to perform.
+            </h2>
+            <p className="mt-6 text-base leading-relaxed text-charcoal-400 md:text-lg">
+              Whether it is a fully fitted labour camp, a temperature-controlled warehouse, or a
+              serviced office, every space in our portfolio is maintained to international standards.
+            </p>
+          </div>
+
+          <div className="scroll-reveal-stagger mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="stagger-child group relative overflow-hidden rounded-xl">
+              <div className="aspect-[4/3] overflow-hidden">
+                <img
+                  src="/images/exterior_patio_1789544274451.jpg"
+                  alt="Outdoor recreation area"
+                  className="scroll-img h-[120%] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-950/80 to-transparent p-6 pt-16">
+                <h3 className="font-serif text-lg text-white">Recreation Areas</h3>
+                <p className="mt-1 text-sm text-navy-200">Open spaces for rest and wellbeing</p>
+              </div>
+            </div>
+
+            <div className="stagger-child group relative overflow-hidden rounded-xl">
+              <div className="aspect-[4/3] overflow-hidden">
+                <img
+                  src="/images/kitchen_interior_1789544288691.jpg"
+                  alt="Modern kitchen and dining facility"
+                  className="scroll-img h-[120%] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-950/80 to-transparent p-6 pt-16">
+                <h3 className="font-serif text-lg text-white">Dining Facilities</h3>
+                <p className="mt-1 text-sm text-navy-200">Hygienic, well-equipped communal kitchens</p>
+              </div>
+            </div>
+
+            <div className="stagger-child group relative overflow-hidden rounded-xl sm:col-span-2 lg:col-span-1">
+              <div className="aspect-[4/3] overflow-hidden">
+                <img
+                  src="/images/dubai_commercial_land_1789645806536.jpg"
+                  alt="Commercial land and industrial yard"
+                  className="scroll-img h-[120%] w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+              </div>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-950/80 to-transparent p-6 pt-16">
+                <h3 className="font-serif text-lg text-white">Industrial Yards</h3>
+                <p className="mt-1 text-sm text-navy-200">Secure, accessible commercial land</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="scroll-reveal mt-12 text-center">
+            <Link to="/agents" className="btn-primary">
+              Talk to Our Team <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <ContactCta />
-    </>
+    </div>
   );
 }
