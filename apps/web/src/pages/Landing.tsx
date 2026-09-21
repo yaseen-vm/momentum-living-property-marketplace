@@ -25,10 +25,19 @@ interface SkeletonImageProps {
   className?: string;
   loading?: "lazy" | "eager";
   style?: React.CSSProperties;
-  skeletonClassName?: string;
+  skeletonBg?: string;
+  fetchPriority?: "high" | "low" | "auto";
 }
 
-function SkeletonImage({ src, alt, className = "", loading = "lazy", style = {}, skeletonClassName = "" }: SkeletonImageProps) {
+function SkeletonImage({
+  src,
+  alt,
+  className = "",
+  loading = "lazy",
+  style = {},
+  skeletonBg = "linear-gradient(90deg, #e2e8f0 0%, #cbd5e1 50%, #e2e8f0 100%)",
+  fetchPriority
+}: SkeletonImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isError, setIsError] = useState(false);
 
@@ -36,10 +45,11 @@ function SkeletonImage({ src, alt, className = "", loading = "lazy", style = {},
     <div className="relative w-full h-full">
       {!isLoaded && !isError && (
         <div
-          className={`absolute inset-0 animate-pulse bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 bg-[length:200%_100%] ${skeletonClassName}`}
+          className="absolute inset-0"
           style={{
             animation: "shimmer 2s infinite linear",
-            backgroundImage: "linear-gradient(90deg, #e2e8f0 0%, #cbd5e1 50%, #e2e8f0 100%)",
+            backgroundImage: skeletonBg,
+            backgroundSize: "200% 100%",
           }}
         />
       )}
@@ -52,6 +62,7 @@ function SkeletonImage({ src, alt, className = "", loading = "lazy", style = {},
         style={style}
         onLoad={() => setIsLoaded(true)}
         onError={() => setIsError(true)}
+        {...(fetchPriority && { fetchpriority: fetchPriority })}
       />
     </div>
   );
@@ -220,7 +231,8 @@ export default function Landing() {
             alt="Professionally managed workforce accommodation"
             className="hero-img h-full w-full object-cover"
             loading="eager"
-            skeletonClassName="bg-navy-800"
+            fetchPriority="high"
+            skeletonBg="linear-gradient(90deg, #1e3a52 0%, #2d4a62 50%, #1e3a52 100%)"
           />
         </div>
         <div className="absolute inset-0 -z-10 bg-navy-950/75 md:bg-transparent md:bg-gradient-to-r md:from-navy-950/90 md:via-navy-950/70 md:to-navy-950/20" />
@@ -362,7 +374,7 @@ export default function Landing() {
             className="parallax-bg h-[120%] w-full object-cover"
             loading="eager"
             style={{ transform: "translate3d(0,0,0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
-            skeletonClassName="bg-navy-800"
+            skeletonBg="linear-gradient(90deg, #1e3a52 0%, #2d4a62 50%, #1e3a52 100%)"
           />
         </div>
         <div className="absolute inset-0 -z-10 bg-navy-950/65" />
