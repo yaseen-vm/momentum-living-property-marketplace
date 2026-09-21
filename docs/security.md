@@ -1,51 +1,56 @@
 # Security
 
+> Target security model for the client build spec. Items not yet implemented are listed under *Known gaps* and tracked in [`implementation-status.md`](./implementation-status.md).
+
 ## Threat Model Summary
 
 | Actor | Threat | Mitigation |
 |-------|--------|-----------|
-| Unauthenticated user | Access vendor/admin routes | JWT validation on every request; 401 on missing/invalid token |
-| Customer | Impersonate another customer | All D1 queries scoped to `user_id` from JWT — never from request body |
-| Unverified vendor | Post listings before approval | `vendor_profiles.status = approved` checked on every listing write |
-| Vendor | Access another vendor's listings or documents | `vendor_id` from JWT matched against resource owner on every handler |
-| Admin impersonation | Elevate role | Role read from JWT signed with `JWT_SECRET`; never from request payload |
-| OTP brute-force | Bypass mobile verification | 5-attempt limit, 15-min lockout, 3 resends/10 min via KV |
-| Malicious file upload | Store malware as "document" | Presign only for known MIME types; private R2 bucket; files never executed |
-| CSRF | Forge state-changing requests | `Authorization: Bearer` header required — not cookie-based; no CSRF surface |
-| XSS | Inject scripts via listing content | React escapes all output; no `dangerouslySetInnerHTML`; CSP header enforced |
-| Prompt injection | Malicious listing text hijacks LLM | External content passed in user-turn XML tags only; system prompt marks as untrusted |
+| Anonymous visitor | See inventory without qualifying | No public listing endpoint; results/details gated server-side on completed, owned enquiry + `lead_matches` membership |
+| Anonymous visitor | Scrape inventory by guessing IDs | Opportunity detail requires `enquiry_id` that the caller owns and that matched the listing; UUIDs not enumerable |
+| Enquirer | Read another enquirer's lead/matches | Every `/availability/*` query scoped by `user_id = jwt.sub` |
+| Enquirer | Skip steps (call matches before requirements) | `403 NOT_QUALIFIED` unless `stage = completed` |
+| Enquirer | Learn owner identity | `owner_name`, `owner_contact`, `internal_notes`, exact coordinates only selected in admin handlers |
+| Admin impersonation | Elevate role | Role from JWT signed with `JWT_SECRET`; admin role only set directly in D1 |
+| OTP brute-force / SMS pumping | Bypass verification, run up SMS bill | 5-attempt limit, 15-min lock, 3 sends / 10 min per mobile via KV; Cloudflare WAF per-IP rate limit on `/auth/otp/send`; Turnstile optional (v1.1) |
+| Fake OTP | Verification bypass in production | Fixed dev code only when `ENVIRONMENT=development`; otherwise missing MSG91 config → `503` |
+| Form spam | Junk leads | Enquiry creation requires verified mobile; 5 enquiries / user / hour; 10 requests / user / hour |
+| Direct file access | Read private photos/docs by key | Private R2; `GET /upload/files/:key` requires HMAC signature + expiry except `public-media/` |
+| Malicious upload | Store malware | MIME allow-list + size limits; files never executed or parsed |
+| CSRF | Forge requests | `Authorization: Bearer` header, no cookies — no CSRF surface |
+| XSS | Script via content (CMS, listing text, enquiry text) | React escapes output; CMS markdown rendered with a sanitising renderer (no raw HTML); no `dangerouslySetInnerHTML` on untrusted input; CSP |
+| Prompt injection (v2) | Listing/enquiry text hijacks an LLM | External content only in user-turn XML tags; system prompt marks it untrusted |
 
 ---
 
 ## Authentication
 
 ### JWT (HS256)
-
-- Signed with `JWT_SECRET` (Cloudflare Workers Secret)
+- Signed with `JWT_SECRET` (Workers Secret)
 - Payload: `{ sub: userId, role, mobile_verified: bool, exp }`
-- Expiry: 24 hours (customer/vendor), 8 hours (admin)
-- Validated at the Hono middleware level before any binding access
-- Stateless — no server-side session storage; token revocation handled by short expiry in v1
+- Expiry: 24 h (enquirer), 8 h (admin)
+- Stateless; short expiry is the revocation mechanism in v1
 
-### OTP Security
-
+### OTP (as implemented in `apps/api/src/lib/otp.ts`)
 ```
-OTP generation:  crypto.getRandomValues → 6-digit integer    (CSPRNG)
-Storage:         bcrypt hash (cost 10) in D1 otp_tokens;     plain OTP never persisted
-Expiry:          5 minutes from creation (expires_at in D1)
-Attempt limit:   5 wrong guesses → otp_tokens.attempts >= 5  → 423 LOCKED response
-Lockout key:     KV  otp:lock:{mobile}  TTL 900 s (15 min)
-Resend cap:      KV  otp:rate:{mobile}  TTL 600 s (10 min);  max 3 within window
+Generation:     crypto.getRandomValues → 6-digit (100000–999999)
+Storage:        HMAC-SHA256(otp, JWT_SECRET) hex in D1 otp_tokens; plain OTP never persisted
+Compare:        constant-time
+Expiry:         5 minutes
+Attempts:       5 wrong guesses → 423 LOCKED, KV otp:lock:{mobile} TTL 900 s
+Send cap:       KV otp:rate:{mobile} TTL 600 s, max 3
+Never:          returned in API responses or shown in the frontend
+Dev fallback:   fixed code ONLY when ENVIRONMENT = "development"
 ```
 
-### Role Enforcement
+### Admin access
+Admin users log in with the same OTP flow; `users.role = 'admin'` is set manually in D1. Admin routes live under `/admin` in the SPA and `/admin/*` in the API; every handler re-checks the role.
 
-Hono middleware reads the JWT on every request and injects `ctx.var.user` with `{ id, role, mobile_verified }`. Route handlers re-verify role — middleware alone is not trusted.
-
+### Role enforcement
 ```
-/vendor/*         role must be vendor AND vendor_profiles.status = approved
-/admin/*          role must be admin
-/customer/*       role must be customer AND mobile_verified = true
+/availability/*   role = customer AND mobile_verified = true; ownership checks per enquiry
+/admin/*          role = admin
+/content, /agents public, read-only
 ```
 
 ---
@@ -54,93 +59,70 @@ Hono middleware reads the JWT on every request and injects `ctx.var.user` with `
 
 | Resource | Rule |
 |----------|------|
-| `listings` read (status=approved) | Public — no auth required |
-| `listings` create/edit | JWT role=vendor, vendor approved, vendor_id matches |
-| `vendor_documents` read | JWT vendor owns the document OR role=admin |
-| `enquiries` create | JWT role=customer, listing status=approved |
-| `enquiries` read | Admin sees all; customer sees own only |
-| All `/admin/*` | JWT role=admin on every handler |
-| CSV export | JWT role=admin; date range ≤ 366 days (server-enforced) |
+| `site_content` read | Public |
+| `site_content` write | Admin |
+| `agents` read (active) | Public (only public fields) |
+| `agents` write | Admin |
+| `enquiries` create | Verified enquirer; `mobile` from JWT user; consent required |
+| `enquiries` read/update | Enquirer: own only, requirements immutable after completion. Admin: all |
+| `lead_matches` / matched listings | Enquirer: own completed enquiries only. Admin: all |
+| `lead_requests` create | Enquirer; listing must be in the enquiry's matches |
+| `listings` read (full, incl. confidential) | Admin only |
+| `listings` write | Admin only |
+| `lead_notes` | Admin only |
+| CSV export | Admin; range ≤ 366 days; 5 / hour |
 
 ---
 
-## File Upload Security
+## File Security
 
-### Presigned PUT (R2)
-
-- Presigned URLs generated server-side after JWT verification
-- URL TTL: 5 minutes (`expiresIn: 300`)
-- Allowed MIME types enforced in the presign handler:
-  - Listing photos: `image/jpeg`, `image/png`, `image/webp`
-  - Vendor documents: `image/jpeg`, `image/png`, `application/pdf`
-- Max file size enforced via R2 presign `contentLengthRange`: photos 10 MB, docs 5 MB
-- Files stored in a **private** R2 bucket — never publicly accessible by key
-
-### File Delivery
-
-- Listing photos: short-lived (1-hour) presigned R2 GET URLs generated by the API Worker
-- Vendor documents: short-lived (1-hour) presigned GET URLs, returned only to the owning vendor or admin
-
-### No Server-Side Execution
-
-Files in R2 are never read by application code for any purpose other than generating a delivery URL. R2 keys (strings) are the only thing stored in D1.
+- Upload through the API Worker (`POST /upload/file`) after JWT check; MIME allow-list (JPEG/PNG/WebP images ≤ 10 MB; PDF allowed for documents ≤ 5 MB).
+- Private R2 bucket. Delivery through `GET /upload/files/:key`:
+  - `public-media/*` → public (agent photos, MD portrait, corporate imagery)
+  - `listing-photos/*`, `enquiry-docs/*`, legacy `vendor-docs/*` → signed URL: `?exp=<unix ms>&sig=HMAC-SHA256(key + exp, JWT_SECRET)`, 1-hour TTL, minted only in responses the caller is authorised to receive.
+- R2 keys are the only file references stored in D1; files are never executed.
 
 ---
 
 ## API Security
 
-### No CSRF Surface
-
-Auth uses `Authorization: Bearer <jwt>` header — browsers cannot forge cross-origin requests with custom headers without CORS preflight. No cookie-based auth means no CSRF attack surface.
-
-### Rate Limiting
-
+### Rate limiting
 | Endpoint | Limit | Storage |
 |----------|-------|---------|
-| `POST /auth/otp/send` | 3 per mobile per 10 min | KV |
-| `POST /auth/otp/verify` | 5 attempts per token | D1 |
-| `POST /enquiries` | 10 per user per hour | KV |
-| `GET /admin/export` | 5 per admin per hour | KV |
-| All other endpoints | 100 req/min per IP | Cloudflare WAF (free tier) |
+| `POST /auth/otp/send` | 3 / mobile / 10 min + WAF per-IP | KV + WAF |
+| `POST /auth/otp/verify` | 5 attempts / token | D1 |
+| `POST /availability/enquiries` | 5 / user / hour | KV |
+| `POST /availability/enquiries/:id/requests` | 10 / user / hour | KV |
+| `GET /admin/export` | 5 / admin / hour | KV |
+| Everything else | 100 req/min per IP | Cloudflare WAF (free tier) |
 
-### Input Validation
+### Input validation
+Zod schemas at every handler boundary (per-user-type schemas for enquiry details and requirements). Unknown fields stripped. Parameterised D1 statements only.
 
-All request bodies parsed through Zod schemas at the Hono route handler boundary. Unknown fields stripped. D1 queries use parameterised statements — no string interpolation into SQL.
-
-### Security Headers (Hono middleware)
-
+### Security headers (Hono middleware + Pages `_headers`)
 ```
-Content-Security-Policy:  default-src 'self'; img-src 'self' data: https://*.r2.dev;
-X-Frame-Options:          DENY
-X-Content-Type-Options:   nosniff
-Referrer-Policy:          strict-origin-when-cross-origin
+Content-Security-Policy:   default-src 'self'; img-src 'self' data: <api origin>; connect-src 'self' <api origin>; frame-ancestors 'none'
+X-Frame-Options:           DENY
+X-Content-Type-Options:    nosniff
+Referrer-Policy:           strict-origin-when-cross-origin
 Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
 ```
+(Relax CSP for the chosen web-chat provider when it is connected.)
+
+### CORS
+Allow-list of the production web origins (`labourcamps.com`, Pages domain); any origin only when `ENVIRONMENT=development`.
 
 ---
 
-## AWS / Bedrock Security (v2)
+## Privacy
 
-When Amazon Bedrock is used for AI listing moderation:
-
-### IAM
-
-- Dedicated IAM role `marketplace-bedrock-role` with least-privilege inline policy:
-  ```json
-  {
-    "Effect": "Allow",
-    "Action": ["bedrock:InvokeModel"],
-    "Resource": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-*"
-  }
-  ```
-- Credentials stored as Cloudflare Workers Secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`)
-- Requests signed with AWS Signature V4 via `aws4fetch` — the only Worker-compatible SigV4 library
-
-### Data Handling
-
-- Only public listing fields (title, description, type) are sent to Bedrock — no PII
-- Vendor documents and customer mobile numbers are **never** sent to any external AI API
-- Listing content is wrapped in `<listing>` XML tags in the user turn; system prompt marks it as untrusted
+- **Data collected:** name, mobile (verified), email, company, position, optional nationality, business type, ownership status, accommodation requirements. No ID numbers, no payment data.
+- **Consent:** required checkbox on the details step: *"I agree to Momentum Living contacting me about my enquiry by phone, WhatsApp or email, and I have read the Privacy Policy."* Stored as `enquiries.consent_at`.
+- **Privacy Policy** and **Terms & Conditions** pages (admin-editable, placeholder text until the client supplies approved wording).
+- Customer data visible only to admins; never on public pages; owner data never shown to enquirers.
+- Deletion: on request, admin deletes the user and their enquiries (cascade to matches/requests/notes) and associated `enquiry-docs/*`.
+- **No compliance claims** (e.g. UAE PDPL) are made on the site unless configured and verified.
+- HTTPS enforced by Cloudflare.
 
 ---
 
@@ -148,30 +130,32 @@ When Amazon Bedrock is used for AI listing moderation:
 
 | Secret | Storage |
 |--------|---------|
-| `JWT_SECRET` | Cloudflare Workers Secret (Wrangler) |
-| `MSG91_AUTH_KEY` | Cloudflare Workers Secret |
-| `MSG91_TEMPLATE_ID` | Cloudflare Workers Secret |
-| `RESEND_API_KEY` | Cloudflare Workers Secret |
-| `ADMIN_EMAIL` | Cloudflare Workers Secret |
-| `AWS_ACCESS_KEY_ID` (v2) | Cloudflare Workers Secret |
-| `AWS_SECRET_ACCESS_KEY` (v2) | Cloudflare Workers Secret |
-| `AWS_REGION` (v2) | Cloudflare Workers Secret |
+| `JWT_SECRET` | Workers Secret |
+| `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID` | Workers Secret |
+| `RESEND_API_KEY`, `ADMIN_EMAIL` | Workers Secret |
+| `AWS_*` (v2) | Workers Secret |
 
-No secrets are committed to the repository. `.dev.vars` (local Wrangler secrets file) is in `.gitignore`.
+`ENVIRONMENT` is a plain `wrangler.toml` var (`development` locally / `production`). Local secrets in `apps/api/.dev.vars` (gitignored).
 
 ---
 
-## Data Privacy
+## Known gaps in current code (must fix before launch)
 
-- Mobile numbers are the only PII collected; access restricted to server-side Workers code only
-- Vendor documents (IDs, licences) stored in private R2; accessible only to the owning vendor and admins
-- Customers can request account deletion (removes User row and cascades to enquiries/shortlists); vendor document R2 objects purged within 90 days of vendor rejection
-- HTTPS enforced by Cloudflare — no unencrypted traffic
+1. `GET /listings` and `GET /listings/:id` are **unauthenticated** — full inventory is public. Remove (legacy).
+2. `GET /upload/files/:key` is **unauthenticated for all keys**, including vendor documents. Add signed-URL check.
+3. OTP fallback (`123456`) activates whenever `MSG91_AUTH_KEY` is a placeholder, regardless of environment. Gate on `ENVIRONMENT`.
+4. No Zod validation on request bodies (manual checks only).
+5. Security headers middleware not installed.
+6. `pnpm audit` not in CI; CI runs typecheck only (no lint).
 
 ---
 
 ## Dependency Security
 
-- `pnpm audit` runs in GitHub Actions CI on every PR; high/critical findings block merge
-- No `eval`, no `dangerouslySetInnerHTML`, no raw SQL string construction in application code
-- Workers bindings declared explicitly in `wrangler.toml` — agents cannot access infrastructure outside declared bindings
+- `pnpm audit` in CI on every PR (to add); high/critical findings block merge.
+- No `eval`, no raw SQL string construction with user input.
+- Worker bindings declared explicitly in `wrangler.toml`.
+
+## AWS / Bedrock (v2)
+
+Unchanged from the original design: least-privilege IAM (`bedrock:InvokeModel` on `anthropic.claude-*`), credentials as Workers Secrets, `aws4fetch` SigV4, only non-PII opportunity text sent, content in `<listing>` XML tags in the user turn.

@@ -1,66 +1,62 @@
-# Momentum Living — Property Marketplace Platform
+# Momentum Living — LabourCamps.com
 
-A listing marketplace for properties, plots and rooms built for **Momentum Living, UAE**.
+Corporate website and private availability-matching platform for **Momentum Living**, a UAE real-estate company specialising in labour accommodation / labour camps. Public web identity: **LabourCamps.com**.
 
-Vendors register as landlord, company, agent or broker, get verified by admin, then submit listings for approval before they appear publicly. Customers verify their mobile via SMS OTP, search approved listings, and register interest. The admin closes deals offline.
+The site has two strictly separated experiences:
+
+1. **Corporate website:** who Momentum Living is, the Managing Director, the agents, the company's approach, and how to contact it. It shows **no inventory**.
+2. **Availability journey:** reached only through the **AVAILABILITY** button:
+   ```
+   User type → Details → Mobile OTP → Requirements → Matched opportunities → Request info / viewing / chat with agent
+   ```
+   Every completed journey creates a **lead** that the admin works with the agents.
+
+The admin dashboard manages leads, properties/opportunities, agents and all corporate content.
 
 ---
 
-## Docs in this repo
+## Docs
 
 | File | Description |
 |------|-------------|
-| [`quotation-LNG-2026-WD-003.md`](./quotation-LNG-2026-WD-003.md) | Full quotation from Lapofy Next Gen Systems LLP — scope, costs, timeline, terms |
-| [`requirements.md`](./requirements.md) | Detailed functional requirements broken down by module |
-| [`tech-stack.md`](./tech-stack.md) | Recommended tech stack with justifications and folder structure |
+| [`docs/implementation-status.md`](./docs/implementation-status.md) | **What's built vs pending**: gap analysis against the client spec |
+| [`docs/requirements.md`](./docs/requirements.md) | Product requirements (from the client build spec) |
+| [`docs/architecture.md`](./docs/architecture.md) | Components and request flows |
+| [`docs/data-model.md`](./docs/data-model.md) | D1 schema, R2, KV |
+| [`docs/api-spec.md`](./docs/api-spec.md) | REST API contract |
+| [`docs/security.md`](./docs/security.md) | Auth, access control, privacy |
+| [`docs/agent-spec.md`](./docs/agent-spec.md) | Async tasks (OTP, lead notifications, export) |
+| [`docs/techstack.md`](./docs/techstack.md) | Technology decisions |
+| [`docs/job-sources.md`](./docs/job-sources.md) | Future feed-ingestion adapter contract |
+| [`docs/roadmap.md`](./docs/roadmap.md) | Milestones |
+| [`quotation-LNG-2026-WD-003.md`](./quotation-LNG-2026-WD-003.md) | Original quotation. Its marketplace scope was superseded by the client build spec |
 
 ---
 
-## Platform at a Glance
-
-```
-Vendor signs up → Admin verifies vendor → Vendor submits listing
-→ Admin approves listing → Customer searches → Customer registers interest
-→ Admin notifies both parties → Deal closed offline
-```
-
-### User Roles
+## Roles
 
 | Role | Capabilities |
 |------|-------------|
-| **Customer** | Verify mobile, search listings, shortlist, register interest |
-| **Vendor** | Landlord / company / agent / broker — submit and manage listings |
-| **Admin** | Verify vendors, approve listings, manage enquiries, export data, view reports |
+| **Visitor** | Reads corporate pages, contacts or chats with an agent |
+| **Enquirer** (JWT role `customer`) | Completes the availability journey, sees own matched opportunities, requests info or a viewing |
+| **Admin** | Leads, properties/opportunities, agents, corporate content, export, reports |
 
----
+## Stack
 
-## Key Features
+React + Vite (Cloudflare Pages) · Hono (Cloudflare Workers) · D1 · KV · R2 · MSG91 (SMS OTP) · Resend (email) · pnpm monorepo.
 
-- **SMS OTP** verification for both customers and vendors
-- **Multi-vendor types** — landlord, company, agent, broker (different doc requirements per type)
-- **Two-stage moderation** — vendor verification + listing approval before anything goes live
-- **Enquiry workflow** — Pending → Owner Confirmed → Customer Contacted → Closed
-- **Segmented CSV exports** — verified customers and interested customers, filterable by date range
-- **Fully responsive** — mobile, tablet and desktop
+```
+apps/web        React SPA
+apps/api        Hono Worker (REST API)
+apps/ingestion  Cron Worker (stub; v2 feeds)
+packages/shared Shared types
+```
 
----
+## Development
 
-## Quote Summary
-
-| | |
-|---|---|
-| **Vendor** | Lapofy Next Gen Systems LLP |
-| **Quote No.** | LNG-2026-WD-003 |
-| **Total** | ₹ 80,000 |
-| **Delivery** | 8 working days from advance + confirmed requirements |
-| **Payment** | 50% advance / 30% demo approval / 20% final delivery |
-
----
-
-## Not in Scope
-
-- Native iOS / Android apps
-- SMS gateway costs (client pays directly)
-- Domain, hosting, infrastructure
-- Online payments / escrow
-- SEO, content writing, translation
+```bash
+pnpm install
+pnpm dev:api     # Wrangler dev (needs apps/api/.dev.vars — see .dev.vars.example)
+pnpm dev:web     # Vite dev server
+pnpm lint && pnpm typecheck
+```

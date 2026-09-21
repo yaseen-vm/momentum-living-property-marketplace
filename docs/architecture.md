@@ -1,38 +1,40 @@
 # System Architecture
 
+> Target architecture for the client build spec. Build status: [`implementation-status.md`](./implementation-status.md).
+
 ## System Overview
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   User's Browser                    │
-│         React + TypeScript + Vite (SPA)             │
-│              Cloudflare Pages                       │
-└────────────────────┬────────────────────────────────┘
-                     │ HTTPS REST
-┌────────────────────▼────────────────────────────────┐
-│              API Worker (Hono)                      │
-│         Cloudflare Workers — V8 native              │
-│  Routes: /auth  /listings  /vendors  /customers     │
-│          /enquiries  /admin  /upload                │
-└──┬──────────┬──────────┬────────────────────────────┘
-   │          │          │
-   ▼          ▼          ▼
-  D1         KV          R2        Vectorize
-(data)   (OTP/cache) (photos/docs) (embeddings v2)
+┌──────────────────────────────────────────────────────────────────┐
+│                          User's Browser                          │
+│             React + TypeScript + Vite SPA — Cloudflare Pages     │
+│                                                                  │
+│  Corporate site (public, prerendered)   Availability journey     │
+│  / /about /managing-director /agents    /availability (wizard)   │
+│  /why-choose-us /contact /privacy       /availability/results/*  │
+│  → NO inventory                         /availability/opps/*     │
+│                                                                  │
+│  Admin dashboard  /admin/* (leads, properties, agents, content)  │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │ HTTPS REST (Bearer JWT)
+┌──────────────────────────────▼───────────────────────────────────┐
+│                     API Worker (Hono) — Cloudflare Workers        │
+│  /auth  /content  /agents  /availability  /upload  /admin/*       │
+│  Matching engine (inline, rule-based)                             │
+└──┬──────────┬──────────┬──────────────┬──────────────────────────┘
+   ▼          ▼          ▼              ▼
+  D1         KV         R2          Vectorize (v2)
+(data)  (rate limits) (photos/docs)
 
-          waitUntil (async)
-   ┌──────────────────────┐
-   │  Inline Agent Tasks  │
-   │ - otp dispatch       │
-   │ - admin notification │
-   │ - moderation webhook │
-   │ - csv export stream  │
-   └──────────┬───────────┘
-              │
-              ▼
-     MSG91 (SMS OTP)
-     Resend (email)
-     Amazon Bedrock (v2 — listing moderation)
+          waitUntil (async, same invocation)
+   ┌──────────────────────────────┐
+   │ - OTP dispatch               │──► MSG91 (SMS)
+   │ - new-lead / request alerts  │──► Resend (email to admin)
+   │ - CSV export stream          │
+   └──────────────────────────────┘
+
+External links (no integration): wa.me (WhatsApp), tel:, mailto:
+Website chat: provider slot (e.g. Tawk.to / Crisp) — v1 UI only
 ```
 
 ---
@@ -40,103 +42,118 @@
 ## Components
 
 ### Cloudflare Pages (Frontend)
-Static SPA built with React + TypeScript + Vite. No SSR runtime. All data fetched from the API Worker via REST. Three logical portals share one codebase — public listing search, vendor dashboard, admin panel — gated by JWT role. Deployed automatically from `main` via GitHub Actions.
+Static SPA built with React + TypeScript + Vite. Three areas in one codebase:
+
+1. **Corporate site** — Home, About Us, Managing Director, MD's Note, Our Agents, Why Choose Us, Contact, Privacy, Terms. Content is fetched from `GET /content` and `GET /agents` (admin-editable). Routes are **prerendered at build time** to static HTML with per-page `<title>`/meta for SEO; content hydrates from the API. **No component on these routes may render inventory.**
+2. **Availability journey** — a single wizard route (`/availability`) with local step state: user type → details → OTP → requirements; then results and opportunity detail routes that require a JWT and call server-gated endpoints. `noindex`.
+3. **Admin dashboard** — `/admin/*`, admin JWT.
+
+Deployed from `main` via GitHub Actions.
 
 ### API Worker (Hono)
-Single Hono Worker handling all client-facing REST requests. Thin handlers: validate input, authorize via JWT, read/write D1/KV/R2, return response. OTP dispatch, admin email notifications, and moderation webhooks run via `waitUntil` so they do not block the HTTP response. Keep all request-path computation within the Cloudflare Workers 10 ms CPU limit.
+Single Hono Worker. Thin handlers: Zod-validate input, authorise via JWT, read/write D1/KV/R2, respond. Async side-effects (SMS, email) run in `waitUntil`. All request-path work within the 10 ms CPU budget.
 
-**Bindings:** `DB` (D1), `KV`, `R2`, `AI`, `VECTORIZE_LISTINGS` (v2), plus secrets `JWT_SECRET`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `RESEND_API_KEY`, `ADMIN_EMAIL`, `AWS_ACCESS_KEY_ID` (v2), `AWS_SECRET_ACCESS_KEY` (v2), `AWS_REGION` (v2).
+**Bindings:** `DB` (D1), `KV`, `R2`, plus secrets `JWT_SECRET`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `RESEND_API_KEY`, `ADMIN_EMAIL`; var `ENVIRONMENT`. v2 adds `AI`, `VECTORIZE_LISTINGS`, AWS secrets.
 
-### Inline Agent Tasks
-All async work (OTP send, admin notifications, vendor/listing moderation emails, CSV generation) runs directly inside `waitUntil` in the relevant route handler — not via Queues. The route returns immediately; work completes asynchronously inside the same Worker invocation.
+### Matching Engine (inline, synchronous)
+Runs inside `PUT /availability/enquiries/:id/requirements` and `POST /admin/leads/:id/rematch`.
 
-### OTP Agent (inline — `waitUntil`)
-Triggered by `POST /auth/otp/send`. Checks KV for rate-limit state, generates a CSPRNG OTP, stores the hashed token in D1, and calls MSG91 SMS API. No blocking of the HTTP response.
+1. Map `user_type` → allowed `opportunity_kind`s (table in `data-model.md`).
+2. Candidate query on the covering index `(status, is_available, opportunity_kind, location_slug, total_capacity)`: `status='approved' AND is_available=1 AND opportunity_kind IN (…) AND location_slug IN (…)` (location filter dropped if the enquirer chose "any"), `LIMIT 200`.
+3. Score each candidate in JS (0–100): capacity fit, budget fit (price within range, tolerance ±10 %), availability date ≤ move-in (+30 days tolerance), property type match, facility overlap. Hard-exclude candidates failing capacity or budget by > 25 %.
+4. Keep top 20 with score ≥ 40 → `lead_matches` (batch insert).
 
-### Notification Agent (inline — `waitUntil`)
-Triggered after `POST /enquiries` creates an enquiry record. Inserts an `admin_notifications` row in D1 and calls Resend to email the admin with both parties' contact details.
+Deterministic and cheap (≤ 200 rows scored) — fits the CPU budget. v2 may add Vectorize re-ranking on free-text requirements.
 
-### Moderation Agent (inline — `waitUntil`)
-Triggered after every admin approve/reject action on a vendor or listing. Updates D1 status, inserts a notification record, and emails the vendor with the outcome and any admin remarks.
+### Notification Agent (`waitUntil`)
+Triggered by lead completion and by info/viewing requests. Writes `admin_notifications` and emails `ADMIN_EMAIL` via Resend with the lead summary (user type, name, company, verified mobile, email, requirements summary, matched references, requested listing). See `agent-spec.md`.
+
+### OTP Agent
+`POST /auth/otp/send` checks KV lock + send count, generates a CSPRNG 6-digit code, stores an HMAC-SHA256 hash in D1 and calls MSG91. Plain OTP never stored or returned.
 
 ### Ingestion Worker (v2 — Scheduled Cron)
-Standalone Worker triggered by a daily cron. Runs listing provider adapters, normalises records to the canonical schema, deduplicates against D1 by `(source_name, source_listing_id)`, writes new records to D1, generates embeddings via Workers AI, and upserts to Vectorize. Idempotent by design.
+Stub today. Future: external feed adapters (see `job-sources.md`) producing **draft** admin-managed listings for review.
 
 ---
 
 ## Request Flows
 
-### Listing Search
+### Corporate page load
 ```
-Browser → API Worker → D1 (filter query on indexed columns) → ranked list → Browser
-```
-
-### Listing Search (semantic — v2)
-```
-Browser → API Worker → Workers AI (embed query) → Vectorize (nearest-neighbour) →
-D1 (fetch listing details for result IDs) → ranked list → Browser
+Browser → Pages (prerendered HTML: title/meta/H1 + placeholder-safe copy)
+        → GET /content  +  GET /agents   (edge-cached 5 min)
+        → hydrate admin-edited content
 ```
 
-### SMS OTP Send & Verify
+### Availability journey
 ```
-POST /auth/otp/send
-  → API Worker returns 200 immediately
-  → waitUntil: check KV rate-limit key → generate OTP → hash → D1 insert →
-    MSG91 SMS API
-
-POST /auth/otp/verify
-  → API Worker fetches D1 OtpToken by mobile
-  → Validates hash, expiry, attempts
-  → Creates/updates User row in D1
-  → Signs JWT → returns { token, role }
-```
-
-### Photo Upload (direct-to-R2)
-```
-POST /upload/presign
-  → API Worker verifies JWT (vendor or admin)
-  → Generates R2 presigned PUT URL (5-min TTL)
-  ← { key, uploadUrl }
-
-Browser → PUT <uploadUrl> directly to R2
-
-POST /vendor/listings  (include R2 key in body)
-  → API Worker creates Listing row in D1 with r2Key references
+Step 1–2 (client state only)
+   │
+POST /auth/otp/send {mobile}            → KV rate check → D1 otp_tokens → MSG91
+POST /auth/otp/verify {mobile, code}    → D1 verify → upsert users → JWT (role=customer)
+POST /availability/enquiries {type, details, consent}
+                                        → D1 enquiries (stage=verified)
+Step 3
+PUT  /availability/enquiries/:id/requirements
+                                        → D1 update (stage=completed)
+                                        → matching engine → D1 lead_matches
+                                        → 200 {match_count}
+                                        → waitUntil: admin_notifications + Resend email
+Step 4
+GET  /availability/enquiries/:id/matches   (403 NOT_QUALIFIED unless owned + completed)
+GET  /availability/opportunities/:id?enquiry_id=…   (403 unless in lead_matches)
+POST /availability/enquiries/:id/requests {listing_id, kind}
+                                        → D1 lead_requests (+ lead_status bump)
+                                        → waitUntil: notification + email
 ```
 
-### Enquiry & Admin Notification
+### Chat With an Agent
 ```
-POST /enquiries
-  → API Worker inserts Enquiry row (status: PENDING)
-  → returns 201 { enquiryId }
-  → waitUntil: fetch enquiry + customer + listing + vendor details from D1 →
-    insert AdminNotification row → Resend email to admin
+Browser opens picker → agent list from GET /agents (or match.agent on cards)
+  → WhatsApp: https://wa.me/<digits>?text=<prefilled incl. reference_no>
+  → Phone: tel:  → Email: mailto:  → Website chat: provider widget (when configured)
+No server call; placeholders render disabled buttons until real contact data exists.
 ```
 
-### Admin Moderation (Vendor / Listing)
+### File upload & delivery
 ```
-POST /admin/vendors/:id/approve
-  → API Worker updates VendorProfile status in D1
-  → returns 200
-  → waitUntil: insert AdminNotification → Resend email to vendor
+POST /upload/file (multipart; admin, or enquirer for enquiry_doc)
+  → type/size validation → R2 put (private bucket) → { key }
+
+API responses that include photos/docs mint signed URLs:
+  /upload/files/<key>?exp=<now+1h>&sig=HMAC(key+exp)
+GET /upload/files/:key
+  → public-media/*  : stream, long cache
+  → other prefixes  : verify sig + exp, else 403
+```
+
+### Admin lead handling
+```
+GET /admin/leads (filters) → GET /admin/leads/:id
+PATCH /admin/leads/:id {lead_status, assigned_agent_id, note} → D1 enquiries + lead_notes
+POST /admin/leads/:id/rematch → matching engine → replace lead_matches
 ```
 
 ### CSV Export
 ```
-GET /admin/export?type=interested&from=...&to=...
-  → API Worker validates admin JWT
-  → D1 query with date range filter
-  → Stream rows through CSV transform
-  ← Response: Content-Type: text/csv, streamed to browser
+GET /admin/export?type=leads&period=30d → admin JWT → KV rate limit
+  → D1 range query → streamed CSV (text/csv attachment)
 ```
 
 ---
 
 ## Security Boundaries
 
-- **JWT secrets:** Workers Secrets only — never in source control or KV values.
-- **R2 objects:** private bucket; served only through authenticated API Worker endpoints or short-lived (1-hour) presigned GET URLs.
-- **OTP tokens:** hashed before storage in D1; plain OTP never persisted.
-- **Agent tools:** each async task function has explicit D1/KV/R2/Bedrock bindings — agents cannot access infrastructure outside declared parameters.
-- **All API routes:** JWT validated at the API Worker before any binding access.
-- **Role enforcement:** role is read from the signed JWT on every request; never from query params or request body.
+- **Corporate / inventory separation:** corporate routes call only `/content` and `/agents`. Inventory is only served by `/availability/*` (qualified enquirer) and `/admin/*` (admin). No public listing endpoint exists.
+- **Qualification enforced server-side:** results and details are gated on enquiry ownership + `stage=completed` + `lead_matches` membership.
+- **Confidential fields:** owner identity/contact, internal notes and exact coordinates are selected only by admin handlers.
+- **JWT secrets:** Workers Secrets only.
+- **R2:** private bucket; signed 1-hour URLs for everything except `public-media/`.
+- **OTP:** hashed at rest; never returned; dev fallback code only when `ENVIRONMENT=development`.
+- **Role enforcement:** role read from the signed JWT on every request, never from params/body.
+
+---
+
+## Legacy components (pending removal)
+
+Vendor portal (`/vendor/*` routes and pages), public listing browse (`/listings`), shortlists, bookings, vendor/listing moderation agent. See `api-spec.md` → Legacy endpoints.
