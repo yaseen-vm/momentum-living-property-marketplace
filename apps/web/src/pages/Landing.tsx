@@ -40,6 +40,15 @@ function SkeletonImage({
 }: SkeletonImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isError, setIsError] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    // Handle already cached/loaded images
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      setIsLoaded(true);
+    }
+  }, []);
 
   return (
     <div className="relative w-full h-full">
@@ -54,6 +63,7 @@ function SkeletonImage({
         />
       )}
       <img
+        ref={imgRef}
         src={src}
         alt={alt}
         className={`${className} transition-opacity duration-500 ${isLoaded ? "opacity-100" : "opacity-0"}`}
@@ -225,16 +235,13 @@ export default function Landing() {
     <div ref={pageRef}>
       {/* ── Hero ── */}
       <section ref={heroRef} className="relative isolate overflow-hidden bg-navy-900">
-        <div className="absolute inset-0 -z-10 h-full w-full">
-          <SkeletonImage
-            src="/images/professional_accommodation_1789645786277.jpg"
-            alt="Professionally managed workforce accommodation"
-            className="hero-img h-full w-full object-cover"
-            loading="eager"
-            fetchPriority="high"
-            skeletonBg="linear-gradient(90deg, #1e3a52 0%, #2d4a62 50%, #1e3a52 100%)"
-          />
-        </div>
+        <img
+          src="/images/professional_accommodation_1789645786277.jpg"
+          alt="Professionally managed workforce accommodation"
+          className="hero-img absolute inset-0 -z-10 h-full w-full object-cover"
+          loading="eager"
+          fetchpriority="high"
+        />
         <div className="absolute inset-0 -z-10 bg-navy-950/75 md:bg-transparent md:bg-gradient-to-r md:from-navy-950/90 md:via-navy-950/70 md:to-navy-950/20" />
 
         <div className="container-site flex min-h-[560px] flex-col justify-center py-20 md:min-h-[640px] md:py-28">
